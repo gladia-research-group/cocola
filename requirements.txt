@@ -1,0 +1,6 @@
+lightning[pytorch-extra]
+torch
+torchvision
+torchaudio
+pandas
+efficientnet_pytorch
