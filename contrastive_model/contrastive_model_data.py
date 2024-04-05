@@ -14,7 +14,7 @@ from data import (
 
 class CoColaDataModule(L.LightningDataModule):
     def __init__(self,
-                 dataset: constants.Dataset = constants.Dataset.MIXED,
+                 dataset: constants.Dataset = constants.Dataset.CCS,
                  batch_size: int = 32,
                  chunk_duration: int = 5,
                  positive_noise: float = 0.001,

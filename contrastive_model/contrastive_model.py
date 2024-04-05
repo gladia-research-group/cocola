@@ -1,68 +1,69 @@
 import lightning as L
 import torch
-from efficientnet_pytorch import EfficientNet
+from torch import nn
 from torch.nn import functional as F
+from efficientnet_pytorch import EfficientNet
 
-
-class EfficientNetEncoder(torch.nn.Module):
-    def __init__(self, drop_connect_rate: float):
-        super(EfficientNetEncoder, self).__init__()
-
-        self.cnn1 = torch.nn.Conv2d(1, 3, kernel_size=3)
-        self.efficientnet = EfficientNet.from_name(
-            "efficientnet-b0", include_top=False, drop_connect_rate=drop_connect_rate
-        )
-
-    def forward(self, x):
-        x = self.cnn1(x)
-        x = self.efficientnet(x)
-
-        y = x.squeeze(3).squeeze(2)
-
-        return y
-
-
-class CoCola(L.LightningModule):
-    def __init__(self,
-                 dropout_p: float = 0.1,
-                 learning_rate: float = 0.001,
-                 embedding_dim: int = 512):
+class Similarity(nn.Module):
+    def __init__(self, dim) -> None:
         super().__init__()
-        self.save_hyperparameters()
+        self.dim = dim
+        self.w = nn.Parameter(data=torch.Tensor(self.dim, self.dim))
+        self.w.data.normal_(0, 0.05)
 
-        self.dropout_p = dropout_p
-        self.learning_rate = learning_rate
+    def forward(self, x, y):
+        projection_x = torch.matmul(self.w, y.t())
+        similarities = torch.matmul(x, projection_x)
+        return similarities
+
+class CoColaEncoder(nn.Module):
+    def __init__(self, embedding_dim: int = 512, dropout_p: float = 0.1) -> None:
+        super().__init__()
         self.embedding_dim = embedding_dim
-
-        self.dropout = torch.nn.Dropout(p=self.dropout_p)
-
-        self.encoder = EfficientNetEncoder(drop_connect_rate=dropout_p)
-
-        self.projection = torch.nn.Linear(1280, self.embedding_dim)
-        self.layer_norm = torch.nn.LayerNorm(normalized_shape=self.embedding_dim)
-        self.linear = torch.nn.Linear(self.embedding_dim, self.embedding_dim, bias=False)
+        self.dropout_p = dropout_p
+        self.efficientnet_encoder = nn.Sequential(
+            EfficientNet.from_name("efficientnet-b0", include_top=False, in_channels=1),
+            nn.Dropout(self.dropout_p),
+            nn.Flatten()
+            )
+        self.projection = nn.Linear(1280, self.embedding_dim)
 
     def forward(self, x):
         anchor, positive = x["anchor"], x["positive"]
 
-        anchor = self.dropout(self.encoder(anchor))
-        anchor = self.dropout(self.projection(anchor))
-        anchor = self.dropout(torch.tanh(self.layer_norm(anchor)))
+        anchor = self.efficientnet_encoder(anchor)
+        anchor = self.projection(anchor)
 
-        positive = self.dropout(self.encoder(positive))
-        positive = self.dropout(self.projection(positive))
-        positive = self.dropout(torch.tanh(self.layer_norm(positive)))
-
-        anchor = self.linear(anchor)
+        positive = self.efficientnet_encoder(positive)
+        positive = self.projection(positive)
 
         return anchor, positive
 
+class CoCola(L.LightningModule):
+    def __init__(self,
+                 learning_rate: float = 0.001,
+                 embedding_dim: int = 512,
+                 dropout_p: float = 0.1):
+        super().__init__()
+        self.save_hyperparameters()
+
+        self.learning_rate = learning_rate
+        self.embedding_dim = embedding_dim
+        self.dropout_p = dropout_p
+
+        self.encoder = CoColaEncoder(embedding_dim=self.embedding_dim, dropout_p=self.dropout_p)
+        self.layer_norm = nn.LayerNorm(normalized_shape=self.embedding_dim)
+        self.tanh = nn.Tanh()
+        self.similarity = Similarity(dim=self.embedding_dim)
+
     def training_step(self, x, batch_idx):
-        anchor_embedding, positive_embedding = self(x)
+        anchor_embedding, positive_embedding = self.encoder(x)
+        anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
+        positive_embedding = self.tanh(self.layer_norm(positive_embedding))
 
         sparse_labels = torch.arange(anchor_embedding.size(0), device=anchor_embedding.device)
 
-        similarities = torch.mm(anchor_embedding, positive_embedding.t())
+        similarities = self.similarity(anchor_embedding, positive_embedding)
 
         loss = F.cross_entropy(similarities, sparse_labels)
 
@@ -75,11 +76,13 @@ class CoCola(L.LightningModule):
         return loss
 
     def validation_step(self, x, batch_idx):
-        anchor_embedding, positive_embedding = self(x)
+        anchor_embedding, positive_embedding = self.encoder(x)
+        anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
+        positive_embedding = self.tanh(self.layer_norm(positive_embedding))
 
         sparse_labels = torch.arange(anchor_embedding.size(0), device=anchor_embedding.device)
 
-        similarities = torch.mm(anchor_embedding, positive_embedding.t())
+        similarities = self.similarity(anchor_embedding, positive_embedding)
 
         loss = F.cross_entropy(similarities, sparse_labels)
 
@@ -90,11 +93,13 @@ class CoCola(L.LightningModule):
         self.log("valid_accuracy", accuracy)
 
     def test_step(self, x, batch_idx):
-        anchor_embedding, positive_embedding = self(x)
+        anchor_embedding, positive_embedding = self.encoder(x)
+        anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
+        positive_embedding = self.tanh(self.layer_norm(positive_embedding))
 
         sparse_labels = torch.arange(anchor_embedding.size(0), device=anchor_embedding.device)
 
-        similarities = torch.mm(anchor_embedding, positive_embedding.t())
+        similarities = self.similarity(anchor_embedding, positive_embedding)
 
         loss = F.cross_entropy(similarities, sparse_labels)
 
