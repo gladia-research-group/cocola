@@ -52,6 +52,7 @@ class Slakh2100ContrastivePreprocessed(Dataset):
         self.positive_noise = positive_noise
         self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
+        self.transform = transform
 
         if self.split not in ["train", "test", "validation"]:
             raise ValueError(
@@ -67,13 +68,8 @@ class Slakh2100ContrastivePreprocessed(Dataset):
 
         if self.preprocess and not self._is_preprocessed():
             self.device = device
-            self.transform = transform
-            if self.transform:
-                self.transform = self.transform.to(self.device)
             self.resample_transform = T.Resample(
-                self.SAMPLE_RATE, self.target_sample_rate).to(device)
-            self.noise_tensor = (self.positive_noise * torch.randn(
-                1, self.target_sample_rate * self.chunk_duration)).to(self.device)
+                self.SAMPLE_RATE, self.target_sample_rate).to(self.device)
             self._preprocess_and_save()
         if not self._is_preprocessed():
             raise RuntimeError(
@@ -113,8 +109,7 @@ class Slakh2100ContrastivePreprocessed(Dataset):
 
         with open(preprocessed_dir / self.PREPROCESSING_INFO_FILE_NAME, "r") as preprocessing_info_file:
             preprocessing_info = json.load(preprocessing_info_file)
-            if preprocessing_info["positive_noise"] != self.positive_noise or \
-               preprocessing_info["chunk_duration"] != self.chunk_duration or \
+            if preprocessing_info["chunk_duration"] != self.chunk_duration or \
                preprocessing_info["target_sample_rate"] != self.target_sample_rate or \
                preprocessing_info["generate_submixtures"] != self.generate_submixtures:
                 logging.info(
@@ -129,7 +124,6 @@ class Slakh2100ContrastivePreprocessed(Dataset):
 
         preprocessed_dir.mkdir(parents=True)
         preprocessing_info = {
-            "positive_noise": self.positive_noise,
             "chunk_duration": self.chunk_duration,
             "target_sample_rate": self.target_sample_rate,
             "generate_submixtures": self.generate_submixtures
@@ -179,12 +173,6 @@ class Slakh2100ContrastivePreprocessed(Dataset):
                     positive_waveform = self._mix_stems(
                         [self._right_pad(stems[j][i]) for j in positive_mix_idxs])
 
-                    positive_waveform = positive_waveform + self.noise_tensor
-
-                    if self.transform:
-                        anchor_waveform = self.transform(anchor_waveform)
-                        positive_waveform = self.transform(positive_waveform)
-
                     torch.save(anchor_waveform, example_path / "anchor.pt")
                     torch.save(positive_waveform, example_path / "positive.pt")
             frame_offset += chunk_num_frames // 2
@@ -206,6 +194,15 @@ class Slakh2100ContrastivePreprocessed(Dataset):
 
         anchor, positive = torch.load(anchor_path, map_location="cpu"), torch.load(
             positive_path, map_location="cpu")
+        
+        noise_tensor = (self.positive_noise * torch.randn(
+                1, self.target_sample_rate * self.chunk_duration))
+
+        positive = positive + noise_tensor
+        
+        if self.transform:
+            anchor = self.transform(anchor)
+            positive = self.transform(positive)
 
         return {"anchor": anchor, "positive": positive}
 
