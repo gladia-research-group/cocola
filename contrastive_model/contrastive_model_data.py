@@ -16,14 +16,12 @@ from data import (
 class CoColaDataModule(L.LightningDataModule):
     def __init__(self,
                  dataset: constants.Dataset = constants.Dataset.CCS,
-                 embedding_model: constants.EmbeddingModel = constants.EmbeddingModel.EFFICIENTNET,
                  batch_size: int = 32,
                  chunk_duration: int = 5,
                  positive_noise: float = 0.001,
                  generate_submixtures: bool = True):
         super().__init__()
         self.dataset = dataset
-        self.embedding_model = embedding_model
         self.batch_size = batch_size
         self.chunk_duration = chunk_duration
         self.positive_noise = positive_noise

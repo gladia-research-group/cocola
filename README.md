@@ -14,11 +14,15 @@ conda activate cocola
 pip install -r requirements.txt
 ```
 
-## Train the contrastive model
+## Usage
 This project uses [LightningCLI](https://lightning.ai/docs/pytorch/stable/api/lightning.pytorch.cli.LightningCLI.html).
 For info about usage:
 ```
 python main.py --help
+```
+### Example: Training a contrastive model
+```
+python main.py fit --config configs/train_all_submixtures_efficientnet.yaml
 ```
 
 ## Troubleshooting
