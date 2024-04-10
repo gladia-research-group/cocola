@@ -1,4 +1,4 @@
-"""Moisesdb Contrastive Torch Dataset"""
+"""Moisesdb Contrastive Torch Dataset."""
 
 from typing import Dict, Literal
 from pathlib import Path
