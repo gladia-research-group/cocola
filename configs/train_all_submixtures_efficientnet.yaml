@@ -9,10 +9,10 @@ trainer:
   logger:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
-        project: cocola
+      project: cocola
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
-        init_args:
+      init_args:
           monitor: valid_loss
           save_top_k: 20
           mode: min
@@ -55,7 +55,7 @@ model:
   dropout_p: 0.1
 data:
   dataset: MIXED
-  batch_size: 64
+  batch_size: 32
   chunk_duration: 5
   positive_noise: 0.001
   generate_submixtures: true
