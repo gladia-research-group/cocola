@@ -12,6 +12,12 @@ from transformers import ClapModel, ClapFeatureExtractor
 
 from contrastive_model import constants
 
+class CosineSimilarity(nn.Module):
+    def forward(self, x, y):
+        x = nn.functional.normalize(x)
+        y = nn.functional.normalize(y)
+        similarities = torch.matmul(x, y.t())
+        return similarities
 
 class BilinearSimilarity(nn.Module):
     def __init__(self, dim) -> None:
@@ -111,6 +117,7 @@ class CoCola(L.LightningModule):
                  learning_rate: float = 0.001,
                  embedding_dim: int = 512,
                  embedding_model: constants.EmbeddingModel = constants.EmbeddingModel.EFFICIENTNET,
+                 similarity_type: constants.Similarity = constants.Similarity.COSINE,
                  dropout_p: float = 0.1):
         super().__init__()
         self.save_hyperparameters()
@@ -118,19 +125,25 @@ class CoCola(L.LightningModule):
         self.learning_rate = learning_rate
         self.embedding_dim = embedding_dim
         self.embedding_model = embedding_model
+        self.similarity_type = similarity_type
         self.dropout_p = dropout_p
 
         self.encoder = CoColaEncoder(embedding_dim=self.embedding_dim,
                                      embedding_model=self.embedding_model,
                                      dropout_p=self.dropout_p)
-        self.layer_norm = nn.LayerNorm(normalized_shape=self.embedding_dim)
-        self.tanh = nn.Tanh()
-        self.similarity = BilinearSimilarity(dim=self.embedding_dim)
+        if self.similarity_type == constants.Similarity.BILINEAR:
+            self.layer_norm = nn.LayerNorm(normalized_shape=self.embedding_dim)
+            self.tanh = nn.Tanh()
+            self.similarity = BilinearSimilarity(dim=self.embedding_dim)
+        elif self.similarity_type == constants.Similarity.COSINE:
+            self.similarity = CosineSimilarity()
 
     def forward(self, x):
         anchor_embedding, positive_embedding = self.encoder(x)
-        anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
-        positive_embedding = self.tanh(self.layer_norm(positive_embedding))
+        
+        if self.similarity_type == constants.Similarity.BILINEAR:
+            anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
+            positive_embedding = self.tanh(self.layer_norm(positive_embedding))
 
         similarities = self.similarity(anchor_embedding, positive_embedding)
         return similarities
