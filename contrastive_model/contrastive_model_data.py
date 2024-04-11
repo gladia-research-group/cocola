@@ -7,7 +7,6 @@ import os
 import lightning as L
 from torch.utils.data import DataLoader, ConcatDataset, random_split
 import torch
-import torchaudio.transforms as T
 
 from contrastive_model import constants
 from data import (
@@ -76,17 +75,17 @@ class CoColaDataModule(L.LightningDataModule):
             self.sample_rate = dataset.target_sample_rate
 
         elif self.dataset == constants.Dataset.MIXED:
-            coco_train_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="train", ensemble="*",
+            coco_train_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="train", ensemble="random",
                                                                                     chunk_duration=self.chunk_duration,
                                                                                     positive_noise=self.positive_noise,
                                                                                     generate_submixtures=self.generate_submixtures,
                                                                                     transform=self.transform)
-            coco_val_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="valid", ensemble="*",
+            coco_val_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="valid", ensemble="random",
                                                                                   chunk_duration=self.chunk_duration,
                                                                                   positive_noise=self.positive_noise,
                                                                                   generate_submixtures=self.generate_submixtures,
                                                                                   transform=self.transform)
-            coco_test_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="test", ensemble="*",
+            coco_test_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="test", ensemble="random",
                                                                                    chunk_duration=self.chunk_duration,
                                                                                    positive_noise=self.positive_noise,
                                                                                    generate_submixtures=self.generate_submixtures,
@@ -124,7 +123,7 @@ class CoColaDataModule(L.LightningDataModule):
     def train_dataloader(self):
         return DataLoader(
             self.train_dataset,
-            batch_size=32,
+            batch_size=self.batch_size,
             shuffle=True,
             drop_last=True,
             num_workers=os.cpu_count(),
@@ -133,7 +132,7 @@ class CoColaDataModule(L.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(
             self.val_dataset,
-            batch_size=32,
+            batch_size=self.batch_size,
             shuffle=False,
             drop_last=True,
             num_workers=os.cpu_count(),
@@ -142,7 +141,7 @@ class CoColaDataModule(L.LightningDataModule):
     def test_dataloader(self):
         return DataLoader(
             self.test_dataset,
-            batch_size=32,
+            batch_size=self.batch_size,
             shuffle=False,
             drop_last=True,
             num_workers=os.cpu_count(),

@@ -214,7 +214,7 @@ def get_dataset(
         generate_submixtures: bool,
         transform=None) -> Slakh2100ContrastivePreprocessed:
     """
-    Provides a dataloader for the Slakh2100Contrastive Dataset.
+    Provides a dataset for the Slakh2100Contrastive Dataset.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

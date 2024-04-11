@@ -219,7 +219,7 @@ def get_dataset(
         generate_submixtures: bool,
         transform=None) -> MusdbContrastivePreprocessed:
     """
-    Provides a dataloader for the MusdbContrastive Dataset.
+    Provides a dataset for the MusdbContrastive Dataset.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

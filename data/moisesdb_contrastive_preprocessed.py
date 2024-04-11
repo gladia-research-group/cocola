@@ -204,7 +204,7 @@ def get_dataset(
         generate_submixtures: bool,
         transform=None) -> MoisesdbContrastivePreprocessed:
     """
-    Provides a dataloader for the MoisesdbContrastive Dataset.
+    Provides a dataset for the MoisesdbContrastive Dataset.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
 

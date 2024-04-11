@@ -256,7 +256,7 @@ def get_dataset(
         generate_submixtures: bool,
         transform=None) -> CocoChoralesContrastivePreprocessed:
     """
-    Provides a dataloader for the CocoChoralesContrastive Dataset.
+    Provides a dataset for the CocoChoralesContrastive Dataset.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
