@@ -29,13 +29,6 @@ class EmbeddingModel(enum.Enum):
 
     CLAP = "clap"
 
-class Similarity(enum.Enum):
-    """Look up for similarity types."""
-
-    BILINEAR = "bilinear"
-
-    COSINE = "dot"
-
 
 class Logger(enum.Enum):
     """Look up for loggers"""
