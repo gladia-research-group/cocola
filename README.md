@@ -2,6 +2,28 @@
 ## Introduction
 This is the official repository [COCOLA: Coherence-Oriented Contrastive Learning of Musical Audio Representations](https://arxiv.org/abs/2404.16969)
 
+## Pretrained Models
+| Model Checkpoint | Train Dataset | Description |
+|-------|---------|-------------|
+| [coco_submixtures_efficientnet_bilinear](https://drive.google.com/drive/folders/1VTCYuzaWECPbtddvFSC9u78Kr69WVzE2?usp=sharing) | [CocoChorales](https://magenta.tensorflow.org/datasets/cocochorales) | COCOLA model trained on CocoChorales dataset using EfficientNet as embedding model and Bilinear Similarity as similarity measure. |
+| [all_submixtures_efficientnet_bilinear](https://drive.google.com/drive/folders/1K-1AJOCL9jBzpl5Sb2NahD-NnsesbvUn?usp=sharing) | [CocoChorales](https://magenta.tensorflow.org/datasets/cocochorales) +  [Slakh2100](http://www.slakh.com) + [MoisesDB](https://github.com/moises-ai/moises-db)| COCOLA model trained on CocoChorales, Slakh2100 and MoisesDB datasets using EfficientNet as embedding model and Bilinear Similarity as similarity measure. |
+### Example: calculating COCOLA Score using a pretrained model
+```python
+model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
+
+model.eval()
+
+similarities = model(x)
+```
+where `x` is like:
+```python
+x = {
+    "anchor": torch.randn(batch_size, 1, 16000*5, dtype=torch.float32),
+    "positive": torch.randn(batch_size, 1, 16000*5, dtype=torch.float32)
+}
+```
+If `batch_size` is 1, `model(x)` returns the COCOLA Score between `x["anchor"]` and `x["positive"]`.
+
 ## Installation
 ### Create virtual environment (Optional)
 ```
