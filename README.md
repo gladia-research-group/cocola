@@ -1,6 +1,6 @@
 # COCOLA
 ## Introduction
-This is the official repository CoCOLA: Contrastive Learning for Musical Stem Coherence
+This is the official repository [COCOLA: Coherence-Oriented Contrastive Learning of Musical Audio Representations](https://arxiv.org/abs/2404.16969)
 
 ## Installation
 ### Create virtual environment (Optional)
