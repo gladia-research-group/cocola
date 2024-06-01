@@ -1,6 +1,6 @@
 # COCOLA
 ## Introduction
-This is the official repository [COCOLA: Coherence-Oriented Contrastive Learning of Musical Audio Representations](https://arxiv.org/abs/2404.16969).
+This is the official repository [COCOLA: Coherence-Oriented Contrastive Learning of Musical Audio Representations](https://arxiv.org/abs/2404.16969). The code for the CompoNet baseline can be found at [https://github.com/EmilianPostolache/componet](https://github.com/EmilianPostolache/componet).
 
 ## Installation
 ### Create virtual environment (Optional)
