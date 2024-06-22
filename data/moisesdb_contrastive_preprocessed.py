@@ -129,32 +129,33 @@ class MoisesdbContrastivePreprocessed(Dataset):
             stems_paths = list(track.glob("*/*.wav"))
             original_track_name = track.name
             chunk_num_frames = self.chunk_duration * self.target_sample_rate
-            
+
             frame_offset = 0
             for _ in range(2):
                 stems = [torch.split(
                     self.resample_transform(self._mix_down(
-                        torchaudio.load(stem_path)[0].to(self.device))),
+                        torchaudio.load(stem_path, frame_offset=frame_offset)[0].to(self.device))),
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
                     for stem_path in stems_paths]
 
+                stems_idxs = range(len(stems))
                 # Take the min as sometimes stems are not exactly the same size
                 for i in range(min(len(stem) for stem in stems)):
-                    stems_idxs = range(len(stems))
                     anchor_mix_size = random.randint(
                         1, len(stems_idxs) // 2) if self.generate_submixtures else 1
                     positive_mix_size = random.randint(
                         1, len(stems_idxs) // 2) if self.generate_submixtures else 1
-                    anchor_mix_idxs = random.sample(stems_idxs, anchor_mix_size)
+                    anchor_mix_idxs = random.sample(
+                        stems_idxs, anchor_mix_size)
                     positive_mix_idxs = random.sample(
                         [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
                     anchor_mix_id = ''.join(str(idx)
                                             for idx in anchor_mix_idxs)
                     positive_mix_id = ''.join(str(idx)
-                                            for idx in positive_mix_idxs)
+                                              for idx in positive_mix_idxs)
 
-                    example_id = f"{original_track_name}_chunk{i}_comb{anchor_mix_id}_{positive_mix_id}_shift{_}"
+                    example_id = f"{original_track_name}_chunk{i}_comb{anchor_mix_id}_{positive_mix_id}_shift{frame_offset}"
                     example_path = preprocessed_dir / example_id
                     example_path.mkdir()
 
@@ -166,7 +167,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
                     torch.save(anchor_waveform, example_path / "anchor.pt")
                     torch.save(positive_waveform, example_path / "positive.pt")
 
-            frame_offset += chunk_num_frames // 2
+                frame_offset += chunk_num_frames // 2
 
     def _load_file_paths(self) -> None:
         preprocessed_dir = (
@@ -185,12 +186,12 @@ class MoisesdbContrastivePreprocessed(Dataset):
 
         anchor, positive = torch.load(anchor_path, map_location="cpu"), torch.load(
             positive_path, map_location="cpu")
-        
+
         noise_tensor = (self.positive_noise * torch.randn(
-                1, self.target_sample_rate * self.chunk_duration))
+            1, self.target_sample_rate * self.chunk_duration))
 
         positive = positive + noise_tensor
-        
+
         if self.transform:
             anchor = self.transform(anchor)
             positive = self.transform(positive)
@@ -222,17 +223,17 @@ def get_dataset(
 
 if __name__ == "__main__":
     transform = torch.nn.Sequential(
-            T.MelSpectrogram(
-                sample_rate=16000,
-                n_fft=1024,
-                win_length=400,
-                hop_length=160,
-                f_min=60.0,
-                f_max=7800.0,
-                n_mels=64,
-            ),
-            T.AmplitudeToDB()
-        )
+        T.MelSpectrogram(
+            sample_rate=16000,
+            n_fft=1024,
+            win_length=400,
+            hop_length=160,
+            f_min=60.0,
+            f_max=7800.0,
+            n_mels=64,
+        ),
+        T.AmplitudeToDB()
+    )
     dataset = get_dataset(chunk_duration=5,
                           positive_noise=0.001, generate_submixtures=True, transform=transform)
 
