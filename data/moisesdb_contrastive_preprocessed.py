@@ -15,6 +15,8 @@ from torch.utils.data import Dataset, DataLoader, random_split
 import torchaudio
 import torchaudio.transforms as T
 
+from data.utils import right_pad, mix_down, mix_stems
+
 random.seed(14703)
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
@@ -72,23 +74,6 @@ class MoisesdbContrastivePreprocessed(Dataset):
         original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME).expanduser()
         return original_dir.exists() and any(original_dir.iterdir())
 
-    def _right_pad(self, waveform):
-        num_frames = waveform.shape[1]
-        expected_num_frames = self.chunk_duration * self.target_sample_rate
-        if num_frames < expected_num_frames:
-            num_missing_frames = expected_num_frames - num_frames
-            last_dim_padding = (0, num_missing_frames)
-            waveform = torch.nn.functional.pad(waveform, last_dim_padding)
-        return waveform
-
-    def _mix_down(self, waveform):
-        if waveform.shape[0] > 1:
-            waveform = torch.mean(waveform, dim=0, keepdim=True)
-        return waveform
-
-    def _mix_stems(self, stems):
-        return 1/len(stems) * sum(stems)
-
     def _is_preprocessed(self) -> bool:
         preprocessed_dir = (
             self.root_dir / self.PREPROCESSED_DIR_NAME).expanduser()
@@ -133,7 +118,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
             frame_offset = 0
             for _ in range(2):
                 stems = [torch.split(
-                    self.resample_transform(self._mix_down(
+                    self.resample_transform(mix_down(
                         torchaudio.load(stem_path, frame_offset=frame_offset)[0].to(self.device))),
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
@@ -143,26 +128,28 @@ class MoisesdbContrastivePreprocessed(Dataset):
                 # Take the min as sometimes stems are not exactly the same size
                 for i in range(min(len(stem) for stem in stems)):
                     anchor_mix_size = random.randint(
-                        1, len(stems_idxs) // 2) if self.generate_submixtures else 1
-                    positive_mix_size = random.randint(
-                        1, len(stems_idxs) // 2) if self.generate_submixtures else 1
+                        1, len(stems_idxs) - 1) if self.generate_submixtures else 1
                     anchor_mix_idxs = random.sample(
                         stems_idxs, anchor_mix_size)
+
+                    positive_mix_size = random.randint(
+                        1, len(stems_idxs) - len(anchor_mix_idxs)) if self.generate_submixtures else 1
                     positive_mix_idxs = random.sample(
                         [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
-                    anchor_mix_id = ''.join(str(idx)
-                                            for idx in anchor_mix_idxs)
-                    positive_mix_id = ''.join(str(idx)
-                                              for idx in positive_mix_idxs)
+
+                    anchor_mix_id = '-'.join(str(idx)
+                                             for idx in anchor_mix_idxs)
+                    positive_mix_id = '-'.join(str(idx)
+                                               for idx in positive_mix_idxs)
 
                     example_id = f"{original_track_name}_chunk{i}_comb{anchor_mix_id}_{positive_mix_id}_shift{frame_offset}"
                     example_path = preprocessed_dir / example_id
                     example_path.mkdir()
 
-                    anchor_waveform = self._mix_stems(
-                        [self._right_pad(stems[j][i]) for j in anchor_mix_idxs])
-                    positive_waveform = self._mix_stems(
-                        [self._right_pad(stems[j][i]) for j in positive_mix_idxs])
+                    anchor_waveform = mix_stems(
+                        [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in anchor_mix_idxs])
+                    positive_waveform = mix_stems(
+                        [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in positive_mix_idxs])
 
                     torch.save(anchor_waveform, example_path / "anchor.pt")
                     torch.save(positive_waveform, example_path / "positive.pt")
