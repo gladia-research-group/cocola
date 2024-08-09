@@ -9,7 +9,7 @@ trainer:
   logger:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
-        project: cocola
+      project: cocola
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
@@ -57,6 +57,5 @@ data:
   dataset: MIXED
   batch_size: 16
   chunk_duration: 5
-  positive_noise: 0.001
   generate_submixtures: true
 ckpt_path: null

@@ -48,30 +48,15 @@ class EfficientNetEncoder(nn.Module):
     def __init__(self, dropout_p) -> None:
         super().__init__()
         self.dropout_p = dropout_p
-        self.processor = torch.nn.Sequential(
-            T.MelSpectrogram(
-                sample_rate=16000,
-                n_fft=1024,
-                win_length=400,
-                hop_length=160,
-                f_min=60.0,
-                f_max=7800.0,
-                n_mels=64,
-            ),
-            T.AmplitudeToDB()
-        )
         self.model = nn.Sequential(
             EfficientNet.from_name(
-                "efficientnet-b0", include_top=False, in_channels=1),
+                "efficientnet-b0", include_top=False, in_channels=2),
             nn.Dropout(self.dropout_p),
             nn.Flatten()
         )
 
-        self.processor.requires_grad_(False)
-
     def forward(self, x):
-        processed_x = self.processor(x)
-        embeddings = self.model(processed_x)
+        embeddings = self.model(x)
         return embeddings
 
 

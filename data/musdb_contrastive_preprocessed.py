@@ -40,7 +40,6 @@ class MusdbContrastivePreprocessed(Dataset):
             preprocess="false",
             split="train",
             chunk_duration=5,
-            positive_noise=0.001,
             target_sample_rate=16000,
             generate_submixtures=True,
             device="cpu",
@@ -51,7 +50,6 @@ class MusdbContrastivePreprocessed(Dataset):
         self.preprocess = preprocess
         self.split = split
         self.chunk_duration = chunk_duration
-        self.positive_noise = positive_noise
         self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
         self.transform = transform
@@ -161,13 +159,17 @@ class MusdbContrastivePreprocessed(Dataset):
                     example_path = preprocessed_dir / example_id
                     example_path.mkdir()
 
-                    anchor_waveform = mix_stems(
+                    anchor = mix_stems(
                         [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in anchor_mix_idxs])
-                    positive_waveform = mix_stems(
+                    positive = mix_stems(
                         [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in positive_mix_idxs])
 
-                    torch.save(anchor_waveform, example_path / "anchor.pt")
-                    torch.save(positive_waveform, example_path / "positive.pt")
+                    if self.transform:
+                        anchor = self.transform(anchor)
+                        positive = self.transform(positive)
+
+                    torch.save(anchor, example_path / "anchor.pt")
+                    torch.save(positive, example_path / "positive.pt")
                 frame_offset += chunk_num_frames // 2
 
     def _load_file_paths(self) -> None:
@@ -188,22 +190,12 @@ class MusdbContrastivePreprocessed(Dataset):
         anchor, positive = torch.load(anchor_path, map_location="cpu"), torch.load(
             positive_path, map_location="cpu")
 
-        noise_tensor = (self.positive_noise * torch.randn(
-            1, self.target_sample_rate * self.chunk_duration))
-
-        positive = positive + noise_tensor
-
-        if self.transform:
-            anchor = self.transform(anchor)
-            positive = self.transform(positive)
-
         return {"anchor": anchor, "positive": positive}
 
 
 def get_dataset(
         split: str,
         chunk_duration: int,
-        positive_noise: float,
         generate_submixtures: bool,
         transform=None) -> MusdbContrastivePreprocessed:
     """
@@ -216,7 +208,6 @@ def get_dataset(
         preprocess=True,
         split=split,
         chunk_duration=chunk_duration,
-        positive_noise=positive_noise,
         target_sample_rate=16000,
         generate_submixtures=generate_submixtures,
         transform=transform,
@@ -239,7 +230,7 @@ if __name__ == "__main__":
         T.AmplitudeToDB()
     )
     dataset = get_dataset(split="train", chunk_duration=5,
-                          positive_noise=0.001, generate_submixtures=True, transform=transform)
+                          generate_submixtures=True, transform=transform)
 
     train_dataset, valid_dataset = random_split(
         dataset=dataset, lengths=[0.9, 0.1])

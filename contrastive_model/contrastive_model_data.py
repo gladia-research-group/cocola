@@ -7,6 +7,8 @@ import os
 import lightning as L
 from torch.utils.data import DataLoader, ConcatDataset, random_split
 import torch
+import librosa
+import numpy as np
 
 from contrastive_model import constants
 from data import (
@@ -16,20 +18,42 @@ from data import (
 )
 
 
+def hpss(waveform, sample_rate=16000):
+    x = waveform.squeeze(0).cpu().numpy()
+    stft_x = librosa.stft(x,
+                          n_fft=1024,
+                          win_length=400,
+                          hop_length=160)
+    harmonic_stft_x, percussive_stft_x = librosa.decompose.hpss(stft_x)
+    mel_harmonic_x = librosa.feature.melspectrogram(S=np.abs(harmonic_stft_x)**2,
+                                                    sr=sample_rate,
+                                                    fmin=60.0,
+                                                    fmax=7800.0,
+                                                    n_mels=64)
+    mel_percussive_x = librosa.feature.melspectrogram(S=np.abs(percussive_stft_x)**2,
+                                                      sr=sample_rate,
+                                                      fmin=60.0,
+                                                      fmax=7800.0,
+                                                      n_mels=64)
+    mel_db_harmonic_x = librosa.power_to_db(mel_harmonic_x, ref=np.max)
+    mel_db_percussive_x = librosa.power_to_db(mel_percussive_x, ref=np.max)
+    processed_x = np.stack((mel_db_harmonic_x, mel_db_percussive_x), axis=0)
+    processed_x = torch.from_numpy(processed_x)
+    return processed_x
+
+
 class CoColaDataModule(L.LightningDataModule):
     def __init__(self,
                  dataset: constants.Dataset = constants.Dataset.CCS,
                  batch_size: int = 32,
                  chunk_duration: int = 5,
-                 positive_noise: float = 0.001,
                  generate_submixtures: bool = True):
         super().__init__()
         self.dataset = dataset
         self.batch_size = batch_size
         self.chunk_duration = chunk_duration
-        self.positive_noise = positive_noise
         self.generate_submixtures = generate_submixtures
-        self.transform = None
+        self.transform = hpss
 
     def setup(self, stage: str):
         if self.dataset in {constants.Dataset.CCS,
@@ -40,13 +64,13 @@ class CoColaDataModule(L.LightningDataModule):
             ensemble = self.dataset.value.split("/")[1]
             self.sample_rate = coco_chorales_contrastive_preprocessed.CocoChoralesContrastivePreprocessed.SAMPLE_RATE
             self.train_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="train", ensemble=ensemble,
-                                                                                    chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
+                                                                                    chunk_duration=self.chunk_duration,
                                                                                     generate_submixtures=self.generate_submixtures, transform=self.transform)
             self.val_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="valid", ensemble=ensemble,
-                                                                                  chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
+                                                                                  chunk_duration=self.chunk_duration,
                                                                                   generate_submixtures=self.generate_submixtures, transform=self.transform)
             self.test_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="test", ensemble=ensemble,
-                                                                                   chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
+                                                                                   chunk_duration=self.chunk_duration,
                                                                                    generate_submixtures=self.generate_submixtures, transform=self.transform)
 
             assert self.train_dataset.target_sample_rate == self.val_dataset.target_sample_rate == self.test_dataset.target_sample_rate
@@ -54,18 +78,18 @@ class CoColaDataModule(L.LightningDataModule):
 
         elif self.dataset == constants.Dataset.SLAKH2100:
             self.train_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="train", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise, generate_submixtures=self.generate_submixtures, transform=self.transform)
+                split="train", chunk_duration=self.chunk_duration,  generate_submixtures=self.generate_submixtures, transform=self.transform)
             self.val_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="validation", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise, generate_submixtures=self.generate_submixtures, transform=self.transform)
+                split="validation", chunk_duration=self.chunk_duration,  generate_submixtures=self.generate_submixtures, transform=self.transform)
             self.test_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="test", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise, generate_submixtures=self.generate_submixtures, transform=self.transform)
+                split="test", chunk_duration=self.chunk_duration,  generate_submixtures=self.generate_submixtures, transform=self.transform)
 
             assert self.train_dataset.target_sample_rate == self.val_dataset.target_sample_rate == self.test_dataset.target_sample_rate
             self.sample_rate = self.train_dataset.target_sample_rate
 
         elif self.dataset == constants.Dataset.MOISESDB:
             dataset = moisesdb_contrastive_preprocessed.get_dataset(chunk_duration=self.chunk_duration,
-                                                                    positive_noise=self.positive_noise,
+
                                                                     generate_submixtures=self.generate_submixtures,
                                                                     transform=self.transform)
 
@@ -77,35 +101,35 @@ class CoColaDataModule(L.LightningDataModule):
         elif self.dataset == constants.Dataset.MIXED:
             coco_train_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="train", ensemble="random",
                                                                                     chunk_duration=self.chunk_duration,
-                                                                                    positive_noise=self.positive_noise,
+
                                                                                     generate_submixtures=self.generate_submixtures,
                                                                                     transform=self.transform)
             coco_val_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="valid", ensemble="random",
                                                                                   chunk_duration=self.chunk_duration,
-                                                                                  positive_noise=self.positive_noise,
+
                                                                                   generate_submixtures=self.generate_submixtures,
                                                                                   transform=self.transform)
             coco_test_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="test", ensemble="random",
                                                                                    chunk_duration=self.chunk_duration,
-                                                                                   positive_noise=self.positive_noise,
+
                                                                                    generate_submixtures=self.generate_submixtures,
                                                                                    transform=self.transform)
 
             moisesdb_dataset = moisesdb_contrastive_preprocessed.get_dataset(chunk_duration=self.chunk_duration,
-                                                                             positive_noise=self.positive_noise,
+
                                                                              generate_submixtures=self.generate_submixtures,
                                                                              transform=self.transform)
             moisesdb_train_dataset, moisesdb_val_dataset, moisesdb_test_dataset = random_split(
                 dataset=moisesdb_dataset, lengths=[0.8, 0.1, 0.1], generator=torch.Generator().manual_seed(42))
 
             slakh_train_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="train", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
+                split="train", chunk_duration=self.chunk_duration,
                 generate_submixtures=self.generate_submixtures, transform=self.transform)
             slakh_val_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="validation", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
+                split="validation", chunk_duration=self.chunk_duration,
                 generate_submixtures=self.generate_submixtures, transform=self.transform)
             slakh_test_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="test", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
+                split="test", chunk_duration=self.chunk_duration,
                 generate_submixtures=self.generate_submixtures, transform=self.transform)
 
             assert coco_train_dataset.target_sample_rate == coco_val_dataset.target_sample_rate == coco_test_dataset.target_sample_rate ==\
