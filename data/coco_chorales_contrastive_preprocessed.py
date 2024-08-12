@@ -63,7 +63,7 @@ class CocoChoralesContrastivePreprocessed(Dataset):
     }
     SAMPLE_RATE = 16000
     ORIGINAL_DIR_NAME = "original"
-    PREPROCESSED_DIR_NAME = "preprocessed"
+    PREPROCESSED_DIR_NAME = "preprocessed_hpss"
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(
