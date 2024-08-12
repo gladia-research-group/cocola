@@ -68,7 +68,7 @@ class CocoChoralesContrastivePreprocessed(Dataset):
 
     def __init__(
             self,
-            root_dir="~/coco_chorales_contrastive",
+            root_dir="/disk1/demancum/coco_chorales_contrastive",
             download="false",
             preprocess="false",
             split="train",
@@ -173,7 +173,7 @@ class CocoChoralesContrastivePreprocessed(Dataset):
             for _ in range(2):
                 stems = [torch.split(
                     self.resample_transform(torchaudio.load(
-                        stem_path, frame_offset=frame_offset)[0].to(self.device)),
+                        str(stem_path), frame_offset=frame_offset)[0].to(self.device)),
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
                     for stem_path in stems_paths]

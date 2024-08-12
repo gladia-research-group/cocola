@@ -34,7 +34,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
 
     def __init__(
             self,
-            root_dir="~/moisesdb_contrastive",
+            root_dir="/disk1/demancum/moisesdb",
             preprocess="false",
             chunk_duration=5,
             target_sample_rate=16000,
@@ -117,7 +117,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
             for _ in range(2):
                 stems = [torch.split(
                     self.resample_transform(mix_down(
-                        torchaudio.load(stem_path, frame_offset=frame_offset)[0].to(self.device))),
+                        torchaudio.load(str(stem_path), frame_offset=frame_offset)[0].to(self.device))),
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
                     for stem_path in stems_paths]

@@ -35,7 +35,7 @@ class Slakh2100ContrastivePreprocessed(Dataset):
 
     def __init__(
             self,
-            root_dir="~/slakh2100_contrastive",
+            root_dir="/disk1/demancum/slakh2100_contrastive",
             download="false",
             preprocess="false",
             split="train",
@@ -133,7 +133,7 @@ class Slakh2100ContrastivePreprocessed(Dataset):
             for _ in range(2):
                 stems = [torch.split(
                     self.resample_transform(torchaudio.load(
-                        stem_path, format="FLAC", frame_offset=frame_offset)[0].to(self.device)),
+                        str(stem_path), format="FLAC", frame_offset=frame_offset)[0].to(self.device)),
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
                     for stem_path in stems_paths]
