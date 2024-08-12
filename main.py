@@ -8,7 +8,7 @@ torch.set_float32_matmul_precision('high')
 
 
 def cli_main():
-    cli = LightningCLI(CoCola, CoColaDataModule, save_config_callback=None)
+    cli = LightningCLI(CoCola, CoColaDataModule)
 
 
 if __name__ == "__main__":

@@ -55,7 +55,7 @@ model:
   dropout_p: 0.1
 data:
   dataset: MIXED
-  batch_size: 32
+  batch_size: 256
   chunk_duration: 5
   generate_submixtures: true
 ckpt_path: null
