@@ -6,9 +6,7 @@ import lightning as L
 import torch
 from torch import nn
 from torch.nn import functional as F
-import torchaudio.transforms as T
 from efficientnet_pytorch import EfficientNet
-from transformers import ClapModel, ClapFeatureExtractor
 
 from contrastive_model import constants
 
@@ -26,56 +24,52 @@ class BilinearSimilarity(nn.Module):
         return similarities
 
 
-class ClapEncoder(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-        self.processor = ClapFeatureExtractor.from_pretrained(
-            "laion/clap-htsat-unfused", sampling_rate=16000)
-        self.model = ClapModel.from_pretrained("laion/clap-htsat-unfused")
-        self.model.requires_grad_(False)
-
-    def forward(self, x):
-        with torch.no_grad():
-            device = x.device
-            x = x.squeeze(1).cpu().numpy()
-            processed_x = self.processor(
-                raw_speech=x, return_tensors="pt", sampling_rate=16000).to(device)
-        embeddings = self.model.get_audio_features(**processed_x)
-        return embeddings
-
-
 class EfficientNetEncoder(nn.Module):
-    def __init__(self, dropout_p) -> None:
+    def __init__(self,
+                 dropout_p,
+                 input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE) -> None:
         super().__init__()
         self.dropout_p = dropout_p
+        self.input_type = input_type
+
+        in_channels = 2 if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE else 1
         self.model = nn.Sequential(
             EfficientNet.from_name(
-                "efficientnet-b0", include_top=False, in_channels=2),
+                "efficientnet-b0", include_top=False, in_channels=in_channels),
             nn.Dropout(self.dropout_p),
             nn.Flatten()
         )
 
     def forward(self, x):
-        embeddings = self.model(x)
+        if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE:
+            # One of the three masks is applied to each element of the batch with same probability:
+            # 1. The first channel is set to 0s
+            # 2. The second channel is set to 0s
+            # 3. None of the channels is set to 0s
+            choices = torch.randint(0, 3, (x.shape[0],))
+            x[choices == 0, 0, :, :] = 0
+            x[choices == 1, 1, :, :] = 0
+            embeddings = self.model(x)
+        elif self.input_type == constants.ModelInputType.SINGLE_CHANNEL_HARMONIC:
+            embeddings = self.model(x[:, 0, :, :].unsqueeze(1))
+        elif self.input_type == constants.ModelInputType.SINGLE_CHANNEL_PERCUSSIVE:
+            embeddings = self.model(x[:, 1, :, :].unsqueeze(1))
         return embeddings
 
 
 class CoColaEncoder(nn.Module):
     def __init__(self,
                  embedding_dim: int = 512,
-                 embedding_model: constants.EmbeddingModel = constants.EmbeddingModel.EFFICIENTNET,
+                 input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE,
                  dropout_p: float = 0.1) -> None:
         super().__init__()
         self.embedding_dim = embedding_dim
-        self.embedding_model = embedding_model
-        if self.embedding_model == constants.EmbeddingModel.EFFICIENTNET:
-            self.dropout_p = dropout_p
-            self.encoder = EfficientNetEncoder(dropout_p=self.dropout_p)
-            self.projection = nn.Linear(1280, self.embedding_dim)
+        self.input_type = input_type
+        self.dropout_p = dropout_p
 
-        elif self.embedding_model == constants.EmbeddingModel.CLAP:
-            self.encoder = ClapEncoder()
-            self.projection = nn.Linear(512, self.embedding_dim)
+        self.encoder = EfficientNetEncoder(
+            dropout_p=self.dropout_p, input_type=self.input_type)
+        self.projection = nn.Linear(1280, self.embedding_dim)
 
     def forward(self, x):
         anchor, positive = x["anchor"], x["positive"]
@@ -95,18 +89,18 @@ class CoCola(L.LightningModule):
     def __init__(self,
                  learning_rate: float = 0.001,
                  embedding_dim: int = 512,
-                 embedding_model: constants.EmbeddingModel = constants.EmbeddingModel.EFFICIENTNET,
+                 input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE,
                  dropout_p: float = 0.1):
         super().__init__()
         self.save_hyperparameters()
 
         self.learning_rate = learning_rate
         self.embedding_dim = embedding_dim
-        self.embedding_model = embedding_model
+        self.input_type = input_type
         self.dropout_p = dropout_p
 
         self.encoder = CoColaEncoder(embedding_dim=self.embedding_dim,
-                                     embedding_model=self.embedding_model,
+                                     input_type=self.input_type,
                                      dropout_p=self.dropout_p)
         self.layer_norm = nn.LayerNorm(normalized_shape=self.embedding_dim)
         self.tanh = nn.Tanh()

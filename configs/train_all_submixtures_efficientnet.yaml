@@ -51,7 +51,7 @@ trainer:
 model:
   learning_rate: 0.001
   embedding_dim: 512
-  embedding_model: EFFICIENTNET
+  input_type: DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
   dropout_p: 0.1
 data:
   dataset: MIXED

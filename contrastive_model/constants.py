@@ -2,6 +2,7 @@
 
 import enum
 
+
 @enum.unique
 class Dataset(enum.Enum):
     """Look up for dataset names."""
@@ -22,12 +23,15 @@ class Dataset(enum.Enum):
 
     MIXED = "mixed_contrastive"
 
-class EmbeddingModel(enum.Enum):
-    """Look up for embedding models."""
 
-    EFFICIENTNET = "efficientnet"
+class ModelInputType(enum.Enum):
+    """Look up for CoCola HPSS Model input types."""
 
-    CLAP = "clap"
+    SINGLE_CHANNEL_HARMONIC = 'single_channel_harmonic'
+
+    SINGLE_CHANNEL_PERCUSSIVE = 'single_channel_percussive'
+
+    DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE = 'double_channel_harmonic_percussive'
 
 
 class Logger(enum.Enum):
