@@ -24,6 +24,8 @@ class CoColaDataModule(L.LightningDataModule):
                  positive_noise: float = 0.001,
                  generate_submixtures: bool = True):
         super().__init__()
+        self.save_hyperparameters()
+
         self.dataset = dataset
         self.batch_size = batch_size
         self.chunk_duration = chunk_duration
