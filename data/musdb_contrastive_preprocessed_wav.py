@@ -1,4 +1,4 @@
-"""Slakh2100 Contrastive Torch Dataset."""
+"""Musdb Contrastive Torch Dataset."""
 
 from typing import Dict, Literal
 from pathlib import Path
@@ -11,31 +11,29 @@ import json
 import pandas as pd
 from tqdm import tqdm
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, random_split
 from torchvision.datasets.utils import download_and_extract_archive
 import torchaudio
 import torchaudio.transforms as T
-
-from data.utils import right_pad, mix_stems
 
 random.seed(14703)
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
 
-class Slakh2100ContrastivePreprocessed(Dataset):
+class MusdbContrastivePreprocessed(Dataset):
     """
-    Slakh2100 Dataset (adapted for contrastive learning): http://www.slakh.com
+    Musdb Dataset (adapted for contrastive learning): https://sigsep.github.io/datasets/musdb.html
     """
     VERSION = "1.0.0"
-    URL = "https://zenodo.org/records/7708270/files/slakh2100_redux_16k.tar.gz"
-    SAMPLE_RATE = 16000
-    ORIGINAL_DIR_NAME = "original"
-    PREPROCESSED_DIR_NAME = "preprocessed"
+    URL = "https://zenodo.org/records/3338373/files/musdb18hq.zip"
+    SAMPLE_RATE = 44100
+    ORIGINAL_DIR_NAME = "musdb18hq"
+    PREPROCESSED_DIR_NAME = "musdb18hq/preprocessed"
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(
             self,
-            root_dir="/disk1/demancum/slakh2100_contrastive",
+            root_dir="/speech/dbwork/mul/spielwiese4/students/demancum/",
             download="false",
             preprocess="false",
             split="train",
@@ -56,9 +54,9 @@ class Slakh2100ContrastivePreprocessed(Dataset):
         self.generate_submixtures = generate_submixtures
         self.transform = transform
 
-        if self.split not in ["train", "test", "validation"]:
+        if self.split not in ["train", "test"]:
             raise ValueError(
-                "`split` must be one of ['train', 'test', 'validation].")
+                "`split` must be one of ['train', 'test'].")
 
         if self.download and not self._is_downloaded_and_extracted():
             self._download_and_extract()
@@ -66,7 +64,7 @@ class Slakh2100ContrastivePreprocessed(Dataset):
             raise RuntimeError(
                 f"Dataset split {self.split} not found. Please use `download=True` to download it.")
         logging.info(
-            f"Found original dataset split {self.split} at {(self.root_dir / self.ORIGINAL_DIR_NAME / 'slakh2100_redux_16k' / self.split).expanduser()}.")
+            f"Found original dataset split {self.split} at {(self.root_dir / self.ORIGINAL_DIR_NAME / self.split).expanduser()}.")
 
         if self.preprocess and not self._is_preprocessed():
             self.device = device
@@ -77,12 +75,12 @@ class Slakh2100ContrastivePreprocessed(Dataset):
             raise RuntimeError(
                 f"Preprocessed dataset split {self.split} not found. Please use `preprocess=True` to preprocess it.")
         logging.info(
-            f"Found preprocessed dataset split {self.split} at {(self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()}.")
+            f"Found preprocessed dataset split {self.split} at {(self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()}.")
 
-        self.file_paths_df = self._load_file_paths()
+        #self.file_paths_df = self._load_file_paths()
 
     def _is_downloaded_and_extracted(self) -> bool:
-        split_dir = (self.root_dir / self.ORIGINAL_DIR_NAME / "slakh2100_redux_16k" /
+        split_dir = (self.root_dir / self.ORIGINAL_DIR_NAME /
                      self.split).expanduser()
         return split_dir.exists() and any(split_dir.iterdir())
 
@@ -90,9 +88,26 @@ class Slakh2100ContrastivePreprocessed(Dataset):
         download_and_extract_archive(
             self.URL, self.root_dir / self.ORIGINAL_DIR_NAME, remove_finished=True)
 
+    def _right_pad(self, waveform):
+        num_frames = waveform.shape[1]
+        expected_num_frames = self.chunk_duration * self.target_sample_rate
+        if num_frames < expected_num_frames:
+            num_missing_frames = expected_num_frames - num_frames
+            last_dim_padding = (0, num_missing_frames)
+            waveform = torch.nn.functional.pad(waveform, last_dim_padding)
+        return waveform
+
+    def _mix_down(self, waveform):
+        if waveform.shape[0] > 1:
+            waveform = torch.mean(waveform, dim=0, keepdim=True)
+        return waveform
+
+    def _mix_stems(self, stems):
+        return sum(stems)
+
     def _is_preprocessed(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()
+            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
 
         if not preprocessed_dir.exists():
             return False
@@ -110,9 +125,9 @@ class Slakh2100ContrastivePreprocessed(Dataset):
 
     def _preprocess_and_save(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()
-
+            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
         preprocessed_dir.mkdir(parents=True)
+
         preprocessing_info = {
             "chunk_duration": self.chunk_duration,
             "target_sample_rate": self.target_sample_rate,
@@ -122,56 +137,70 @@ class Slakh2100ContrastivePreprocessed(Dataset):
         with open(preprocessed_dir / self.PREPROCESSING_INFO_FILE_NAME, "w") as preprocessing_info_file:
             json.dump(preprocessing_info, preprocessing_info_file)
 
-        original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME / "slakh2100_redux_16k" /
+        original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME /
                         self.split).expanduser()
 
         tracks = original_dir.glob("*/")
 
         for track in tqdm(tracks, desc="Preprocessing tracks"):
-            stems_paths = list(track.glob("stems/S*.flac"))
+            #stems_paths = list(track.glob("*.wav"))
+            instrument_dirs = list(track.glob("*"))
+            filtered_instrument_dirs = [path for path in instrument_dirs if path.stem != "mixture"]
+
             original_track_name = track.name
-            chunk_num_frames = self.chunk_duration * self.SAMPLE_RATE
+            chunk_num_frames = self.chunk_duration * self.target_sample_rate
             frame_offset = 0
             for _ in range(2):
                 stems = [torch.split(
-                    self.resample_transform(torchaudio.load(
-                        str(stem_path), format="FLAC", frame_offset=frame_offset)[0].to(self.device)),
+                    self.resample_transform(self._mix_down(
+                        torchaudio.load(str(stem_path), frame_offset=frame_offset)[0].to(self.device))),
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
-                    for stem_path in stems_paths]
+                    for stem_path in filtered_instrument_dirs]
 
                 stems_idxs = range(len(stems))
-                for i in range(len(stems[0])):
+                for i in range(min(len(stem) for stem in stems)):
                     anchor_mix_size = random.randint(
-                        1, len(stems_idxs) - 1) if self.generate_submixtures else 1
+                        1, len(stems_idxs)-1) if self.generate_submixtures else 1
+                    #positive_mix_size = random.randint(
+                    #    1, len(stems_idxs) // 2) if self.generate_submixtures else 1
                     anchor_mix_idxs = random.sample(
                         stems_idxs, anchor_mix_size)
+                    #positive_mix_idxs = random.sample(
+                    #    [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
+                    
+                    anchor_mix_id = '-'.join(Path(filtered_instrument_dirs[idx].name).stem for idx in anchor_mix_idxs)
+                    #positive_mix_id = '-'.join(instrument_dirs[idx].name for idx in positive_mix_idxs)
+                    
+                    others_mix_idxs = [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs]
 
-                    positive_mix_size = random.randint(
-                        1, len(stems_idxs) - len(anchor_mix_idxs)) if self.generate_submixtures else 1
-                    positive_mix_idxs = random.sample(
-                        [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
+                    #others_mix_id = [instrument_dirs[idx].name for idx in [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs]]
 
-                    anchor_mix_id = '-'.join(str(idx)
-                                             for idx in anchor_mix_idxs)
-                    positive_mix_id = '-'.join(str(idx)
-                                               for idx in positive_mix_idxs)
+                    others_mix_id = [Path(filtered_instrument_dirs[idx].name).stem for idx in others_mix_idxs]
 
-                    example_id = f"{original_track_name}_chunk{i}_comb{anchor_mix_id}_{positive_mix_id}_shift{frame_offset}"
+                    
+
+                    example_id = f"{original_track_name}_chunk{i}_shift{frame_offset}"
                     example_path = preprocessed_dir / example_id
                     example_path.mkdir()
 
-                    anchor_waveform = mix_stems(
-                        [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in anchor_mix_idxs])
-                    positive_waveform = mix_stems(
-                        [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in positive_mix_idxs])
+                    anchor_waveform = self._mix_stems(
+                        [self._right_pad(stems[j][i]) for j in anchor_mix_idxs])
+                    #positive_waveform = self._mix_stems(
+                    #    [self._right_pad(stems[j][i]) for j in positive_mix_idxs])
 
-                    torch.save(anchor_waveform, example_path / "anchor.pt")
-                    torch.save(positive_waveform, example_path / "positive.pt")
+                    
+                    with open(example_path / "remaining_stems.json", "w") as final: json.dump(others_mix_id, final)
+                    
+                    for idx, j in enumerate(others_mix_idxs):
+                        other_waveform = self._right_pad(stems[j][i])
+                        torchaudio.save(str(example_path / f"{others_mix_id[idx]}.wav"), other_waveform.to("cpu"), self.target_sample_rate)
+
+                    torchaudio.save(str(example_path / f"mix_{anchor_mix_id}.wav"), anchor_waveform.to("cpu"), self.target_sample_rate)
                 frame_offset += chunk_num_frames // 2
 
     def _load_file_paths(self) -> None:
-        split_dir = (self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) /
+        split_dir = (self.root_dir / self.PREPROCESSED_DIR_NAME /
                      self.split).expanduser()
         tracks = split_dir.glob("*/")
         file_paths_df = pd.concat(map(lambda track: pd.DataFrame(
@@ -205,19 +234,19 @@ def get_dataset(
         chunk_duration: int,
         positive_noise: float,
         generate_submixtures: bool,
-        transform=None) -> Slakh2100ContrastivePreprocessed:
+        transform=None) -> MusdbContrastivePreprocessed:
     """
-    Provides a dataset for the Slakh2100Contrastive Dataset.
+    Provides a dataset for the MusdbContrastive Dataset.
     """
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    dataset = Slakh2100ContrastivePreprocessed(
-        download=True,
+    dataset = MusdbContrastivePreprocessed(
+        download=False,
         preprocess=True,
         split=split,
         chunk_duration=chunk_duration,
         positive_noise=positive_noise,
-        target_sample_rate=16000,
+        target_sample_rate=44100, #CHECK SAMPLE RATE
         generate_submixtures=generate_submixtures,
         transform=transform,
         device=device)
@@ -238,22 +267,7 @@ if __name__ == "__main__":
         ),
         T.AmplitudeToDB()
     )
-    train_dataset = get_dataset(
-        split="train", chunk_duration=5, positive_noise=0.001, generate_submixtures=True, transform=transform)
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-        num_workers=os.cpu_count(),
-        persistent_workers=True)
+    dataset = get_dataset(split="test", chunk_duration=20,
+                          positive_noise=0.0, generate_submixtures=True, transform=None) #CHECK CHUNK DURATION
 
-    valid_dataset = get_dataset(
-        split="validation", chunk_duration=5, positive_noise=0.001, generate_submixtures=True, transform=transform)
-    valid_dataloader = DataLoader(
-        valid_dataset,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-        num_workers=os.cpu_count(),
-        persistent_workers=True)
+

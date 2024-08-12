@@ -1,7 +1,10 @@
-lightning[pytorch-extra]
-torch
-torchvision
-torchaudio
-pandas
-efficientnet_pytorch
-transformers
+lightning[pytorch-extra]==2.2.1
+torch==2.2.2
+torchvision==0.17.2
+torchaudio==2.2.2
+pandas==2.2.1
+efficientnet_pytorch==0.7.1
+transformers==4.39.3
+wandb==0.16.0
+soundfile==0.12.1
+numpy==1.26.4

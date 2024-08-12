@@ -16,8 +16,6 @@ from torchvision.datasets.utils import download_and_extract_archive
 import torchaudio
 import torchaudio.transforms as T
 
-from data.utils import right_pad, mix_stems
-
 random.seed(14703)
 logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
@@ -62,13 +60,13 @@ class CocoChoralesContrastivePreprocessed(Dataset):
         ]
     }
     SAMPLE_RATE = 16000
-    ORIGINAL_DIR_NAME = "original"
+    ORIGINAL_DIR_NAME = "main_dataset"
     PREPROCESSED_DIR_NAME = "preprocessed"
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(
             self,
-            root_dir="/disk1/demancum/coco_chorales_contrastive",
+            root_dir="/speech/dbwork/mul/spielwiese4/students/demancum/cocochorales_full_v1_unzipped",
             download="false",
             preprocess="false",
             split="train",
@@ -116,9 +114,9 @@ class CocoChoralesContrastivePreprocessed(Dataset):
             raise RuntimeError(
                 f"Preprocessed dataset split {self.split} not found. Please use `preprocess=True` to preprocess it.")
         logging.info(
-            f"Found preprocessed dataset split {self.split} at {(self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()}.")
+            f"Found preprocessed dataset split {self.split} at {(self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()}.")
 
-        self.file_paths_df = self._load_file_paths()
+        #self.file_paths_df = self._load_file_paths()
 
     def _is_downloaded_and_extracted(self) -> bool:
         split_dir = (self.root_dir / self.ORIGINAL_DIR_NAME /
@@ -130,9 +128,21 @@ class CocoChoralesContrastivePreprocessed(Dataset):
             download_and_extract_archive(
                 url, self.root_dir / self.ORIGINAL_DIR_NAME / self.split, md5=self.MD5S[self.split][i], remove_finished=True)
 
+    def _right_pad(self, waveform):
+        num_frames = waveform.shape[1]
+        expected_num_frames = self.chunk_duration * self.target_sample_rate
+        if num_frames < expected_num_frames:
+            num_missing_frames = expected_num_frames - num_frames
+            last_dim_padding = (0, num_missing_frames)
+            waveform = torch.nn.functional.pad(waveform, last_dim_padding)
+        return waveform
+
+    def _mix_stems(self, stems):
+        return sum(stems)
+
     def _is_preprocessed(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()
+            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
 
         if not preprocessed_dir.exists():
             return False
@@ -150,7 +160,7 @@ class CocoChoralesContrastivePreprocessed(Dataset):
 
     def _preprocess_and_save(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()
+            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
         preprocessed_dir.mkdir(parents=True)
 
         preprocessing_info = {
@@ -181,38 +191,49 @@ class CocoChoralesContrastivePreprocessed(Dataset):
                     for stem_path in stems_paths]
 
                 stems_idxs = range(len(stems))
-                for i in range(len(stems[0])):
+                for i in range(min(len(stem) for stem in stems)):
                     anchor_mix_size = random.randint(
-                        1, len(stems_idxs) - 1) if self.generate_submixtures else 1
+                        1, len(stems_idxs)-1) if self.generate_submixtures else 1
+                    #positive_mix_size = random.randint(
+                    #    1, len(stems_idxs) // 2) if self.generate_submixtures else 1
                     anchor_mix_idxs = random.sample(
                         stems_idxs, anchor_mix_size)
+                    #positive_mix_idxs = random.sample(
+                    #    [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
+                    
+                    anchor_mix_id = '-'.join(Path(stems_paths[idx].name).stem for idx in anchor_mix_idxs)
+                    #positive_mix_id = '-'.join(instrument_dirs[idx].name for idx in positive_mix_idxs)
+                    
+                    others_mix_idxs = [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs]
 
-                    positive_mix_size = random.randint(
-                        1, len(stems_idxs) - len(anchor_mix_idxs)) if self.generate_submixtures else 1
-                    positive_mix_idxs = random.sample(
-                        [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
+                    #others_mix_id = [instrument_dirs[idx].name for idx in [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs]]
 
-                    anchor_mix_id = '-'.join(str(idx)
-                                             for idx in anchor_mix_idxs)
-                    positive_mix_id = '-'.join(str(idx)
-                                               for idx in positive_mix_idxs)
+                    others_mix_id = [Path(stems_paths[idx].name).stem for idx in others_mix_idxs]
 
-                    example_id = f"{original_track_name}_chunk{i}_comb{anchor_mix_id}_{positive_mix_id}_shift{frame_offset}"
+                    
+
+                    example_id = f"{original_track_name}_chunk{i}_shift{frame_offset}"
                     example_path = preprocessed_dir / example_id
                     example_path.mkdir()
 
-                    anchor_waveform = mix_stems(
-                        [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in anchor_mix_idxs])
-                    positive_waveform = mix_stems(
-                        [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in positive_mix_idxs])
+                    anchor_waveform = self._mix_stems(
+                        [self._right_pad(stems[j][i]) for j in anchor_mix_idxs])
+                    #positive_waveform = self._mix_stems(
+                    #    [self._right_pad(stems[j][i]) for j in positive_mix_idxs])
 
-                    torch.save(anchor_waveform, example_path / "anchor.pt")
-                    torch.save(positive_waveform, example_path / "positive.pt")
+                    
+                    with open(example_path / "remaining_stems.json", "w") as final: json.dump(others_mix_id, final)
+                    
+                    for idx, j in enumerate(others_mix_idxs):
+                        other_waveform = self._right_pad(stems[j][i])
+                        torchaudio.save(str(example_path / f"{others_mix_id[idx]}.wav"), other_waveform.to("cpu"), self.target_sample_rate)
+
+                    torchaudio.save(str(example_path / f"mix_{anchor_mix_id}.wav"), anchor_waveform.to("cpu"), self.target_sample_rate)
 
                 frame_offset += chunk_num_frames // 2
 
     def _load_file_paths(self) -> None:
-        split_dir = (self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) /
+        split_dir = (self.root_dir / self.PREPROCESSED_DIR_NAME /
                      self.split).expanduser()
         tracks = split_dir.glob(f"{self.ensemble}_track*")
         file_paths_df = pd.concat(map(lambda track: pd.DataFrame(
@@ -254,13 +275,13 @@ def get_dataset(
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     dataset = CocoChoralesContrastivePreprocessed(
-        download=True,
+        download=False,
         preprocess=True,
         split=split,
         ensemble=ensemble,
         chunk_duration=chunk_duration,
         positive_noise=positive_noise,
-        target_sample_rate=16000,
+        target_sample_rate=16000, #CHECK SAMPLE RATE
         generate_submixtures=generate_submixtures,
         transform=transform,
         device=device)
@@ -281,22 +302,5 @@ if __name__ == "__main__":
         ),
         T.AmplitudeToDB()
     )
-    train_dataset = get_dataset(split="train", ensemble="*",
-                                chunk_duration=5, positive_noise=0.001, generate_submixtures=True, transform=transform)
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-        num_workers=os.cpu_count(),
-        persistent_workers=True)
-
-    valid_dataset = get_dataset(split="valid", ensemble="*",
-                                chunk_duration=5, positive_noise=0.001, generate_submixtures=True, transform=transform)
-    valid_dataloader = DataLoader(
-        valid_dataset,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-        num_workers=os.cpu_count(),
-        persistent_workers=True)
+    train_dataset = get_dataset(split="test", ensemble="*",
+                                chunk_duration=20, positive_noise=0.0, generate_submixtures=True, transform=None) #CHECK CHUNK DURATION

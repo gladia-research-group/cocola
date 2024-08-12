@@ -13,9 +13,9 @@ trainer:
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-        monitor: valid_loss
-        save_top_k: 20
-        mode: min
+          monitor: valid_loss
+          save_top_k: 20
+          mode: min
   fast_dev_run: false
   max_epochs: 500
   min_epochs: null
@@ -54,9 +54,9 @@ model:
   embedding_model: EFFICIENTNET
   dropout_p: 0.1
 data:
-  dataset: MIXED
-  batch_size: 512
-  chunk_duration: 2
+  dataset: MOISESDB
+  batch_size: 128
+  chunk_duration: 10
   positive_noise: 0.001
   generate_submixtures: true
 ckpt_path: null

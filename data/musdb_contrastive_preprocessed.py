@@ -35,7 +35,7 @@ class MusdbContrastivePreprocessed(Dataset):
 
     def __init__(
             self,
-            root_dir="~/musdb_contrastive",
+            root_dir="/disk1/demancum/musdb_contrastive",
             download="false",
             preprocess="false",
             split="train",
@@ -77,7 +77,7 @@ class MusdbContrastivePreprocessed(Dataset):
             raise RuntimeError(
                 f"Preprocessed dataset split {self.split} not found. Please use `preprocess=True` to preprocess it.")
         logging.info(
-            f"Found preprocessed dataset split {self.split} at {(self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()}.")
+            f"Found preprocessed dataset split {self.split} at {(self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()}.")
 
         self.file_paths_df = self._load_file_paths()
 
@@ -92,7 +92,7 @@ class MusdbContrastivePreprocessed(Dataset):
 
     def _is_preprocessed(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
+            self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()
 
         if not preprocessed_dir.exists():
             return False
@@ -110,7 +110,7 @@ class MusdbContrastivePreprocessed(Dataset):
 
     def _preprocess_and_save(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
+            self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) / self.split).expanduser()
         preprocessed_dir.mkdir(parents=True)
 
         preprocessing_info = {
@@ -135,7 +135,7 @@ class MusdbContrastivePreprocessed(Dataset):
             for _ in range(2):
                 stems = [torch.split(
                     self.resample_transform(mix_down(
-                        torchaudio.load(stem_path, frame_offset=frame_offset)[0].to(self.device))),
+                        torchaudio.load(str(stem_path), frame_offset=frame_offset)[0].to(self.device))),
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
                     for stem_path in stems_paths]
@@ -171,7 +171,7 @@ class MusdbContrastivePreprocessed(Dataset):
                 frame_offset += chunk_num_frames // 2
 
     def _load_file_paths(self) -> None:
-        split_dir = (self.root_dir / self.PREPROCESSED_DIR_NAME /
+        split_dir = (self.root_dir / (self.PREPROCESSED_DIR_NAME+str(self.chunk_duration)) /
                      self.split).expanduser()
         tracks = split_dir.glob("*/")
         file_paths_df = pd.concat(map(lambda track: pd.DataFrame(
