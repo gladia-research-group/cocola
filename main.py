@@ -7,7 +7,7 @@ from contrastive_model.contrastive_model import CoCola
 
 
 def cli_main():
-    cli = LightningCLI(CoCola, CoColaDataModule) #save_config_callback=None
+    cli = LightningCLI(CoCola, CoColaDataModule, save_config_callback=None) 
 
 
 if __name__ == "__main__":
