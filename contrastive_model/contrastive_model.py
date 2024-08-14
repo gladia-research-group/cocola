@@ -32,6 +32,7 @@ class EfficientNetEncoder(nn.Module):
         super().__init__()
         self.dropout_p = dropout_p
         self.input_type = input_type
+        self.rand_mask = rand_mask
 
         in_channels = 2 if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE else 1
         self.model = nn.Sequential(
@@ -63,14 +64,16 @@ class CoColaEncoder(nn.Module):
     def __init__(self,
                  embedding_dim: int = 512,
                  input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE,
+                 rand_mask: bool = False,
                  dropout_p: float = 0.1) -> None:
         super().__init__()
         self.embedding_dim = embedding_dim
         self.input_type = input_type
         self.dropout_p = dropout_p
+        self.rand_mask = rand_mask
 
         self.encoder = EfficientNetEncoder(
-            dropout_p=self.dropout_p, input_type=self.input_type)
+            dropout_p=self.dropout_p, input_type=self.input_type, rand_mask=self.rand_mask)
         self.projection = nn.Linear(1280, self.embedding_dim)
 
     def forward(self, x):
@@ -92,6 +95,7 @@ class CoCola(L.LightningModule):
                  learning_rate: float = 0.001,
                  embedding_dim: int = 512,
                  input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE,
+                 rand_mask: bool = False,
                  dropout_p: float = 0.1):
         super().__init__()
         self.save_hyperparameters()
@@ -100,10 +104,11 @@ class CoCola(L.LightningModule):
         self.embedding_dim = embedding_dim
         self.input_type = input_type
         self.dropout_p = dropout_p
+        self.rand_mask = rand_mask
 
         self.encoder = CoColaEncoder(embedding_dim=self.embedding_dim,
                                      input_type=self.input_type,
-                                     dropout_p=self.dropout_p)
+                                     dropout_p=self.dropout_p, rand_mask=self.rand_mask)
         self.layer_norm = nn.LayerNorm(normalized_shape=self.embedding_dim)
         self.tanh = nn.Tanh()
         self.similarity = BilinearSimilarity(dim=self.embedding_dim)
