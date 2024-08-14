@@ -51,8 +51,9 @@ trainer:
 model:
   learning_rate: 0.001
   embedding_dim: 512
-  input_type: DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
+  input_type: SINGLE_CHANNEL_PERCUSSIVE
   dropout_p: 0.1
+  rand_mask: false
 data:
   dataset: MIXED
   batch_size: 256

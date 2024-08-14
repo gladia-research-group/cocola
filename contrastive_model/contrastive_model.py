@@ -27,6 +27,7 @@ class BilinearSimilarity(nn.Module):
 class EfficientNetEncoder(nn.Module):
     def __init__(self,
                  dropout_p,
+                 rand_mask,
                  input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE) -> None:
         super().__init__()
         self.dropout_p = dropout_p
@@ -46,9 +47,10 @@ class EfficientNetEncoder(nn.Module):
             # 1. The first channel is set to 0s
             # 2. The second channel is set to 0s
             # 3. None of the channels is set to 0s
-            choices = torch.randint(0, 3, (x.shape[0],))
-            x[choices == 0, 0, :, :] = 0
-            x[choices == 1, 1, :, :] = 0
+            if self.rand_mask:
+                choices = torch.randint(0, 3, (x.shape[0],))
+                x[choices == 0, 0, :, :] = 0
+                x[choices == 1, 1, :, :] = 0
             embeddings = self.model(x)
         elif self.input_type == constants.ModelInputType.SINGLE_CHANNEL_HARMONIC:
             embeddings = self.model(x[:, 0, :, :].unsqueeze(1))
