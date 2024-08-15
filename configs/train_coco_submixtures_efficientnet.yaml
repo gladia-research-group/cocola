@@ -54,8 +54,10 @@ model:
   input_type: DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
   dropout_p: 0.1
 data:
+  root_dir: /disk1/demancum/
   dataset: CCS
   batch_size: 32
   chunk_duration: 5
+  target_sample_rate: 16000
   generate_submixtures: true
 ckpt_path: null

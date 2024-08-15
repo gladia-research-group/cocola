@@ -3,7 +3,6 @@
 from typing import Dict, Literal
 from pathlib import Path
 import random
-import os
 import logging
 import shutil
 import json
@@ -34,15 +33,16 @@ class MoisesdbContrastivePreprocessed(Dataset):
 
     def __init__(
             self,
-            root_dir="/disk1/demancum/moisesdb",
-            preprocess="false",
+            root_dir="~/moisesdb_contrastive",
+            preprocess=True,
             chunk_duration=5,
             target_sample_rate=16000,
             generate_submixtures=True,
             device="cpu",
             transform=None) -> None:
 
-        self.root_dir = Path(root_dir)
+        self.root_dir = Path(root_dir) if isinstance(
+            root_dir, str) else root_dir
         self.preprocess = preprocess
         self.chunk_duration = chunk_duration
         self.target_sample_rate = target_sample_rate
@@ -177,59 +177,3 @@ class MoisesdbContrastivePreprocessed(Dataset):
             positive_path, map_location="cpu")
 
         return {"anchor": anchor, "positive": positive}
-
-
-def get_dataset(
-        chunk_duration: int,
-        generate_submixtures: bool,
-        transform=None) -> MoisesdbContrastivePreprocessed:
-    """
-    Provides a dataset for the MoisesdbContrastive Dataset.
-    """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    dataset = MoisesdbContrastivePreprocessed(
-        preprocess=True,
-        chunk_duration=chunk_duration,
-        target_sample_rate=16000,
-        generate_submixtures=generate_submixtures,
-        transform=transform,
-        device=device)
-
-    return dataset
-
-
-if __name__ == "__main__":
-    transform = torch.nn.Sequential(
-        T.MelSpectrogram(
-            sample_rate=16000,
-            n_fft=1024,
-            win_length=400,
-            hop_length=160,
-            f_min=60.0,
-            f_max=7800.0,
-            n_mels=64,
-        ),
-        T.AmplitudeToDB()
-    )
-    dataset = get_dataset(
-        chunk_duration=5, generate_submixtures=True, transform=transform)
-
-    train_dataset, valid_dataset = random_split(
-        dataset=dataset, lengths=[0.9, 0.1])
-
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-        num_workers=os.cpu_count(),
-        persistent_workers=True)
-
-    valid_dataloader = DataLoader(
-        valid_dataset,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-        num_workers=os.cpu_count(),
-        persistent_workers=True)
