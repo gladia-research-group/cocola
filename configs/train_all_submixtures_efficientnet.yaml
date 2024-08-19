@@ -51,13 +51,13 @@ trainer:
 model:
   learning_rate: 0.001
   embedding_dim: 512
-  input_type: SINGLE_CHANNEL_PERCUSSIVE
+  input_type: DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
   dropout_p: 0.1
-  rand_mask: false
+  rand_mask: true 
 data:
   root_dir: /disk1/demancum/
   dataset: MIXED
-  batch_size: 256
+  batch_size: 32
   chunk_duration: 5
   target_sample_rate: 16000
   generate_submixtures: true
