@@ -1,5 +1,6 @@
 __pycache__
 wandb
 lightning_logs
+cocola
 cocola_hpss
 config.yaml
