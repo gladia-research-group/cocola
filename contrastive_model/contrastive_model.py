@@ -54,15 +54,14 @@ class EfficientNetEncoder(nn.Module):
 class CoColaEncoder(nn.Module):
     def __init__(self,
                  embedding_dim: int = 512,
-                 rand_mask: bool = False,
+                 embedding_mode: constants.EmbeddingMode = constants.EmbeddingMode.RANDOM,
                  input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE,
                  dropout_p: float = 0.1) -> None:
         super().__init__()
         self.embedding_dim = embedding_dim
+        self.embedding_mode = embedding_mode
         self.input_type = input_type
         self.dropout_p = dropout_p
-        self.rand_mask = rand_mask
-        
 
         self.encoder = EfficientNetEncoder(
             dropout_p=self.dropout_p, input_type=self.input_type)
@@ -71,13 +70,19 @@ class CoColaEncoder(nn.Module):
     def forward(self, x):
         anchor, positive = x["anchor"], x["positive"]
         if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE:
-            if self.rand_mask:
+            if self.embedding_mode == constants.EmbeddingMode.RANDOM:
                 choices = torch.randint(0, 3, (anchor.shape[0],))
                 anchor[choices == 0, 0, :, :] = 0
                 anchor[choices == 1, 1, :, :] = 0
 
                 positive[choices == 0, 0, :, :] = 0
                 positive[choices == 1, 1, :, :] = 0
+            elif self.embedding_mode == constants.EmbeddingMode.HARMONIC:
+                anchor[:, 1, :, :] = 0
+                positive[:, 1, :, :] = 0
+            elif self.embedding_mode == constants.EmbeddingMode.PERCUSSIVE:
+                anchor[:, 0, :, :] = 0
+                positive[:, 0, :, :] = 0
 
         data = torch.cat((anchor, positive), dim=0)
 
@@ -94,7 +99,7 @@ class CoCola(L.LightningModule):
     def __init__(self,
                  learning_rate: float = 0.001,
                  embedding_dim: int = 512,
-                 rand_mask: bool = False,
+                 embedding_mode: constants.EmbeddingMode = constants.EmbeddingMode.RANDOM,
                  input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE,
                  dropout_p: float = 0.1):
         super().__init__()
@@ -102,21 +107,25 @@ class CoCola(L.LightningModule):
 
         self.learning_rate = learning_rate
         self.embedding_dim = embedding_dim
-        self.rand_mask = rand_mask
+        self.embedding_mode = embedding_mode
         self.input_type = input_type
         self.dropout_p = dropout_p
         
         
 
         self.encoder = CoColaEncoder(embedding_dim=self.embedding_dim,
-                                     rand_mask=self.rand_mask,
+                                     embedding_mode=self.embedding_mode,
                                      input_type=self.input_type,
                                      dropout_p=self.dropout_p)
         self.layer_norm = nn.LayerNorm(normalized_shape=self.embedding_dim)
         self.tanh = nn.Tanh()
         self.similarity = BilinearSimilarity(dim=self.embedding_dim)
 
-    def forward(self, x):
+    def set_embedding_mode(self, embedding_mode: constants.EmbeddingMode):
+        self.embedding_mode = embedding_mode
+        self.encoder.embedding_mode = embedding_mode
+
+    def forward(self, x, use_anchors_as_negatives=True):
         anchor_embedding, positive_embedding = self.encoder(x)
         anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
         positive_embedding = self.tanh(self.layer_norm(positive_embedding))

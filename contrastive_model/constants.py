@@ -23,7 +23,7 @@ class Dataset(enum.Enum):
 
     MIXED = "mixed_contrastive"
 
-
+@enum.unique
 class ModelInputType(enum.Enum):
     """Look up for CoCola HPSS Model input types."""
 
@@ -33,10 +33,10 @@ class ModelInputType(enum.Enum):
 
     DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE = 'double_channel_harmonic_percussive'
 
-
-class Logger(enum.Enum):
-    """Look up for loggers"""
-
-    WANDB = "wandb"
-
-    TENSORBOARD = "tensorboard"
+@enum.unique
+class EmbeddingMode(enum.Enum):
+    """Look up for selecting channels to use at inference time for DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE models."""
+    HARMONIC = 'harmonic'
+    PERCUSSIVE = 'percussive'
+    BOTH = 'both'
+    RANDOM = 'random'
