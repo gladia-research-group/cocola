@@ -14,8 +14,9 @@ trainer:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
         monitor: valid_loss
-        save_top_k: 20
+        save_top_k: 5
         mode: min
+        filename: checkpoint-{valid_loss:.4f}-{epoch:02d}
   fast_dev_run: false
   max_epochs: 500
   min_epochs: null
