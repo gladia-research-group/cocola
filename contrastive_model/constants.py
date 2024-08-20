@@ -37,6 +37,9 @@ class ModelInputType(enum.Enum):
 class EmbeddingMode(enum.Enum):
     """Look up for selecting channels to use at inference time for DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE models."""
     HARMONIC = 'harmonic'
+
     PERCUSSIVE = 'percussive'
+
     BOTH = 'both'
+    
     RANDOM = 'random'
