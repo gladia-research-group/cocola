@@ -129,13 +129,16 @@ class CoCola(L.LightningModule):
         anchor_embedding, positive_embedding = self.encoder(x)
         anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
         positive_embedding = self.tanh(self.layer_norm(positive_embedding))
-        embeddings = torch.cat((anchor_embedding, positive_embedding), 0)
+        if use_anchors_as_negatives:
+            embeddings = torch.cat((anchor_embedding, positive_embedding), 0)
 
-        similarities = self.similarity(embeddings, embeddings)
-        batch_size = anchor_embedding.shape[0]
-        mask = torch.eye(
-            2 * batch_size, dtype=torch.bool, device=similarities.device)
-        similarities = similarities[~mask].reshape(2 * batch_size, -1)
+            similarities = self.similarity(embeddings, embeddings)
+            batch_size = anchor_embedding.shape[0]
+            mask = torch.eye(
+                2 * batch_size, dtype=torch.bool, device=similarities.device)
+            similarities = similarities[~mask].reshape(2 * batch_size, -1)
+        else:
+            similarities = self.similarity(anchor_embedding, positive_embedding)
         return similarities
 
     def training_step(self, x, batch_idx):
@@ -168,30 +171,8 @@ class CoCola(L.LightningModule):
         self.log("valid_loss", loss)
         self.log("valid_accuracy", accuracy)
 
-    # def test_step(self, x, batch_idx):
-    #     similarities = self(x)
-    #     batch_size = similarities.shape[0] // 2
-    #     labels = torch.cat(
-    #         (torch.arange(batch_size - 1, 2 * batch_size - 1), torch.arange(batch_size))).to(similarities.device)
-
-    #     loss = F.cross_entropy(similarities, labels)
-
-    #     _, predicted = torch.max(similarities, 1)
-    #     accuracy = (predicted == labels).double().mean()
-
-    #     self.log("test_loss", loss)
-    #     self.log("test_accuracy", accuracy)
-
-    def forward_test(self, x):
-        anchor_embedding, positive_embedding = self.encoder(x)
-        anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
-        positive_embedding = self.tanh(self.layer_norm(positive_embedding))
-
-        similarities = self.similarity(anchor_embedding, positive_embedding)
-        return similarities
-
     def test_step(self, x, batch_idx):
-        similarities = self.forward_test(x)
+        similarities = self(x, use_anchors_as_negatives=False)
         sparse_labels = torch.arange(
             similarities.size(0), device=similarities.device)
 
