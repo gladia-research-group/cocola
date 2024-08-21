@@ -76,7 +76,8 @@ class CocoChoralesContrastivePreprocessed(Dataset):
             target_sample_rate=16000,
             generate_submixtures=True,
             device="cpu",
-            transform=None) -> None:
+            preprocess_transform=None,
+            runtime_transform=None) -> None:
 
         self.root_dir = Path(root_dir) if isinstance(
             root_dir, str) else root_dir
@@ -87,7 +88,8 @@ class CocoChoralesContrastivePreprocessed(Dataset):
         self.chunk_duration = chunk_duration
         self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
-        self.transform = transform
+        self.preprocess_transform = preprocess_transform
+        self.runtime_transform = runtime_transform
 
         if self.split not in ["train", "valid", "test"]:
             raise ValueError(
@@ -204,9 +206,9 @@ class CocoChoralesContrastivePreprocessed(Dataset):
                     positive = mix_stems(
                         [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in positive_mix_idxs])
 
-                    if self.transform:
-                        anchor = self.transform(anchor)
-                        positive = self.transform(positive)
+                    if self.preprocess_transform:
+                        anchor = self.preprocess_transform(anchor)
+                        positive = self.preprocess_transform(positive)
 
                     torch.save(anchor, example_path / "anchor.pt")
                     torch.save(positive, example_path / "positive.pt")
@@ -230,5 +232,9 @@ class CocoChoralesContrastivePreprocessed(Dataset):
 
         anchor, positive = torch.load(anchor_path, map_location="cpu"), torch.load(
             positive_path, map_location="cpu")
+        
+        if self.runtime_transform:
+            anchor = self.runtime_transform(anchor)
+            positive = self.runtime_transform(positive)
 
         return {"anchor": anchor, "positive": positive}

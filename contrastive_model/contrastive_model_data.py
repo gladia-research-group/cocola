@@ -100,7 +100,7 @@ class CoColaDataModule(L.LightningDataModule):
             target_sample_rate=self.target_sample_rate,
             generate_submixtures=self.generate_submixtures,
             device=device,
-            transform=self.transform)
+            preprocess_transform=self.transform)
         
         val_dataset = CocoChoralesContrastivePreprocessed(
             root_dir=root_dir,
@@ -112,7 +112,7 @@ class CoColaDataModule(L.LightningDataModule):
             target_sample_rate=self.target_sample_rate,
             generate_submixtures=self.generate_submixtures,
             device=device,
-            transform=self.transform)
+            preprocess_transform=self.transform)
         
         test_dataset = CocoChoralesContrastivePreprocessed(
             root_dir=root_dir,
@@ -124,7 +124,7 @@ class CoColaDataModule(L.LightningDataModule):
             target_sample_rate=self.target_sample_rate,
             generate_submixtures=self.generate_submixtures,
             device=device,
-            transform=self.transform)
+            preprocess_transform=self.transform)
         return train_dataset, val_dataset, test_dataset
     
     def _get_slakh2100_splits(self):
@@ -140,7 +140,7 @@ class CoColaDataModule(L.LightningDataModule):
             target_sample_rate=self.target_sample_rate,
             generate_submixtures=self.generate_submixtures,
             device=device,
-            transform=self.transform)
+            preprocess_transform=self.transform)
         
         val_dataset = Slakh2100ContrastivePreprocessed(
             root_dir=root_dir,
@@ -151,7 +151,7 @@ class CoColaDataModule(L.LightningDataModule):
             target_sample_rate=self.target_sample_rate,
             generate_submixtures=self.generate_submixtures,
             device=device,
-            transform=self.transform)
+            preprocess_transform=self.transform)
         
         test_dataset = Slakh2100ContrastivePreprocessed(
             root_dir=root_dir,
@@ -162,7 +162,7 @@ class CoColaDataModule(L.LightningDataModule):
             target_sample_rate=self.target_sample_rate,
             generate_submixtures=self.generate_submixtures,
             device=device,
-            transform=self.transform)
+            preprocess_transform=self.transform)
 
         return train_dataset, val_dataset, test_dataset
     
@@ -177,7 +177,7 @@ class CoColaDataModule(L.LightningDataModule):
             target_sample_rate=self.target_sample_rate,
             generate_submixtures=self.generate_submixtures,
             device=device,
-            transform=self.transform
+            preprocess_transform=self.transform
         )
 
         train_dataset, val_dataset, test_dataset = random_split(
