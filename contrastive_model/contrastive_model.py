@@ -18,81 +18,77 @@ class BilinearSimilarity(nn.Module):
         self.w = nn.Parameter(data=torch.Tensor(self.dim, self.dim))
         self.w.data.normal_(0, 0.05)
 
-    def forward(self, x, y):
-        projection_x = torch.matmul(self.w, y.t())
-        similarities = torch.matmul(x, projection_x)
+    def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Computes the matrix of similarities between the elements of x and y.
+
+        Args:
+            x (torch.Tensor): the first batch of embeddings of shape (B, E).
+            y (torch.Tensor): the second batch of embeddings of shape (B, E). 
+
+        Returns:
+            torch.Tensor: the matrix of similarities of shape (B, B).
+        """
+        projection_y = torch.matmul(self.w, y.t())
+        similarities = torch.matmul(x, projection_y)
+        return similarities
+    
+    def pairwise(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Computes the vector of pairwise similarities between the elements of x and y.
+
+        Args:
+            x (torch.Tensor): the first batch of embeddings of shape (B, E).
+            y (torch.Tensor): the second batch of embeddings of shape (B, E). 
+
+        Returns:
+            torch.Tensor: the vector of similarities of shape (B).
+        """
+        projection_y = torch.matmul(self.w, y.t())
+        similarities = (x * projection_y.t()).sum(dim=-1)
         return similarities
 
 
 class EfficientNetEncoder(nn.Module):
     def __init__(self,
                  dropout_p,
-                 input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE) -> None:
+                 in_channels: int = 2) -> None:
         super().__init__()
         self.dropout_p = dropout_p
-        self.input_type = input_type
+        self.in_channels = in_channels
 
-        in_channels = 2 if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE else 1
         self.model = nn.Sequential(
             EfficientNet.from_name(
-                "efficientnet-b0", include_top=False, in_channels=in_channels),
+                "efficientnet-b0", include_top=False, in_channels=self.in_channels),
             nn.Dropout(self.dropout_p),
             nn.Flatten()
         )
 
     def forward(self, x):
-        if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE:
-
-            embeddings = self.model(x)
-        elif self.input_type == constants.ModelInputType.SINGLE_CHANNEL_HARMONIC:
-            embeddings = self.model(x[:, 0, :, :].unsqueeze(1))
-        elif self.input_type == constants.ModelInputType.SINGLE_CHANNEL_PERCUSSIVE:
-            embeddings = self.model(x[:, 1, :, :].unsqueeze(1))
-        return embeddings
+        return self.model(x)
 
 
 class CoColaEncoder(nn.Module):
     def __init__(self,
                  embedding_dim: int = 512,
-                 embedding_mode: constants.EmbeddingMode = constants.EmbeddingMode.RANDOM,
                  input_type: constants.ModelInputType = constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE,
                  dropout_p: float = 0.1) -> None:
         super().__init__()
         self.embedding_dim = embedding_dim
-        self.embedding_mode = embedding_mode
         self.input_type = input_type
         self.dropout_p = dropout_p
 
+        in_channels = 2 if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE else 1
         self.encoder = EfficientNetEncoder(
-            dropout_p=self.dropout_p, input_type=self.input_type)
+            dropout_p=self.dropout_p, in_channels=in_channels)
         self.projection = nn.Linear(1280, self.embedding_dim)
 
     def forward(self, x):
-        anchor, positive = x["anchor"], x["positive"]
-        if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE:
-            if self.embedding_mode == constants.EmbeddingMode.RANDOM:
-                choices = torch.randint(0, 3, (anchor.shape[0],))
-                anchor[choices == 0, 0, :, :] = 0
-                anchor[choices == 1, 1, :, :] = 0
-
-                positive[choices == 0, 0, :, :] = 0
-                positive[choices == 1, 1, :, :] = 0
-            elif self.embedding_mode == constants.EmbeddingMode.HARMONIC:
-                anchor[:, 1, :, :] = 0
-                positive[:, 1, :, :] = 0
-            elif self.embedding_mode == constants.EmbeddingMode.PERCUSSIVE:
-                anchor[:, 0, :, :] = 0
-                positive[:, 0, :, :] = 0
-
-        data = torch.cat((anchor, positive), dim=0)
-
-        embeddings = self.encoder(data)
+        if self.input_type == constants.ModelInputType.SINGLE_CHANNEL_HARMONIC:
+            x = x[:, 0, :, :].unsqueeze(1)
+        elif self.input_type == constants.ModelInputType.SINGLE_CHANNEL_PERCUSSIVE:
+            x = x[:, 1, :, :].unsqueeze(1)
+        embeddings = self.encoder(x)
         projected = self.projection(embeddings)
-
-        anchor_projected, positive_projected = torch.split(
-            projected, projected.size(0) // 2, dim=0)
-
-        return anchor_projected, positive_projected
+        return projected
 
 
 class CoCola(L.LightningModule):
@@ -111,10 +107,7 @@ class CoCola(L.LightningModule):
         self.input_type = input_type
         self.dropout_p = dropout_p
         
-        
-
         self.encoder = CoColaEncoder(embedding_dim=self.embedding_dim,
-                                     embedding_mode=self.embedding_mode,
                                      input_type=self.input_type,
                                      dropout_p=self.dropout_p)
         self.layer_norm = nn.LayerNorm(normalized_shape=self.embedding_dim)
@@ -122,23 +115,73 @@ class CoCola(L.LightningModule):
         self.similarity = BilinearSimilarity(dim=self.embedding_dim)
 
     def set_embedding_mode(self, embedding_mode: constants.EmbeddingMode):
+        """Sets the embedding mode for inference (for DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE models only).
+
+        The embedding mode specifies the channel(s) to be used at inference time, a 0-mask is applied
+        on the other channel(s):
+        - HARMONIC: a 0-mask is applied on the percussive channel
+        - PERCUSSIVE: a 0-mask is applied on the harmonic channel
+        - BOTH: keeps both channels
+        - RANDOM: applies one of the previous three transformations at random to each element of a batch.
+
+        Args:
+            embedding_mode (constants.EmbeddingMode): the embedding mode.
+        """
         self.embedding_mode = embedding_mode
         self.encoder.embedding_mode = embedding_mode
 
+    def score(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+        """Computes the COCOLA score between each element of x and y. 
+
+        Args:
+            x (torch.Tensor): the first batch of spectrograms of shape (B, C, H, W).
+            y (torch.Tensor): the second batch of spectrograms of shape (B, C, H, W).
+
+        Returns:
+            torch.Tensor: the batch of COCOLA scores of shape (B).
+        """
+        data = torch.cat((x, y), dim=0)
+        data_embeddings = self.encoder(data)
+        x_embeddings, y_embeddings = torch.split(
+            data_embeddings, data_embeddings.size(0) // 2, dim=0)
+
+        scores = self.similarity.pairwise(x_embeddings, y_embeddings)
+        return scores
+
     def forward(self, x, use_anchors_as_negatives=True):
-        anchor_embedding, positive_embedding = self.encoder(x)
-        anchor_embedding = self.tanh(self.layer_norm(anchor_embedding))
-        positive_embedding = self.tanh(self.layer_norm(positive_embedding))
+        anchors, positives = x["anchor"], x["positive"]
+        if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE:
+            if self.embedding_mode == constants.EmbeddingMode.RANDOM:
+                choices = torch.randint(0, 3, (anchors.shape[0],))
+                anchors[choices == 0, 0, :, :] = 0
+                anchors[choices == 1, 1, :, :] = 0
+
+                positives[choices == 0, 0, :, :] = 0
+                positives[choices == 1, 1, :, :] = 0
+            elif self.embedding_mode == constants.EmbeddingMode.HARMONIC:
+                anchors[:, 1, :, :] = 0
+                positives[:, 1, :, :] = 0
+            elif self.embedding_mode == constants.EmbeddingMode.PERCUSSIVE:
+                anchors[:, 0, :, :] = 0
+                positives[:, 0, :, :] = 0
+
+        data = torch.cat((anchors, positives), dim=0)
+        data_embeddings = self.encoder(data)
+        anchor_embeddings, positive_embeddings = torch.split(
+            data_embeddings, data_embeddings.size(0) // 2, dim=0)
+        
+        anchor_embeddings = self.tanh(self.layer_norm(anchor_embeddings))
+        positive_embeddings = self.tanh(self.layer_norm(positive_embeddings))
         if use_anchors_as_negatives:
-            embeddings = torch.cat((anchor_embedding, positive_embedding), 0)
+            embeddings = torch.cat((anchor_embeddings, positive_embeddings), 0)
 
             similarities = self.similarity(embeddings, embeddings)
-            batch_size = anchor_embedding.shape[0]
+            batch_size = anchor_embeddings.shape[0]
             mask = torch.eye(
                 2 * batch_size, dtype=torch.bool, device=similarities.device)
             similarities = similarities[~mask].reshape(2 * batch_size, -1)
         else:
-            similarities = self.similarity(anchor_embedding, positive_embedding)
+            similarities = self.similarity(anchor_embeddings, positive_embeddings)
         return similarities
 
     def training_step(self, x, batch_idx):
