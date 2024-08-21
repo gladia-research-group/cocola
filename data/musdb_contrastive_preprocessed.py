@@ -29,7 +29,7 @@ class MusdbContrastivePreprocessed(Dataset):
     URL = "https://zenodo.org/records/3338373/files/musdb18hq.zip"
     SAMPLE_RATE = 44100
     ORIGINAL_DIR_NAME = "original"
-    PREPROCESSED_DIR_NAME = "preprocessed_hpss"
+    PREPROCESSED_DIR_NAME = "preprocessed5" #TODO REMEMBER TO CHANGE THIS in preprocessed_hpss
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(

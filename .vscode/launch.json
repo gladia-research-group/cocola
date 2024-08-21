@@ -13,9 +13,10 @@
                 "/home/demancum/cocola/configs/train_all_submixtures_efficientnet.yaml"
             ],
             "env": {
-                "CUDA_VISIBLE_DEVICES": "0",
+                "CUDA_VISIBLE_DEVICES": "1",
             },
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "cwd": "/speech/dbwork/mul/spielwiese3/demancum"
         },
         {
             "name": "train",
