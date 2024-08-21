@@ -192,8 +192,9 @@ class MusdbContrastivePreprocessed(Dataset):
         anchor, positive = torch.load(anchor_path, map_location="cpu"), torch.load(
             positive_path, map_location="cpu")
         
+        item = {"anchor": anchor, "positive": positive}
+        
         if self.runtime_transform:
-            anchor = self.runtime_transform(anchor)
-            positive = self.runtime_transform(positive)
+            item = self.runtime_transform(item)
 
-        return {"anchor": anchor, "positive": positive}
+        return item
