@@ -128,7 +128,7 @@ class MusdbContrastivePreprocessed(Dataset):
         tracks = original_dir.glob("*/")
 
         for track in tqdm(tracks, desc="Preprocessing tracks"):
-            stems_paths = list(track.glob("*.wav"))
+            stems_paths = [path for path in track.glob("*.wav") if path.name != "mixture.wav"]
             original_track_name = track.name
             chunk_num_frames = self.chunk_duration * self.target_sample_rate
             frame_offset = 0
