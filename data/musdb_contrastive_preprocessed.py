@@ -29,7 +29,8 @@ class MusdbContrastivePreprocessed(Dataset):
     URL = "https://zenodo.org/records/3338373/files/musdb18hq.zip"
     SAMPLE_RATE = 44100
     ORIGINAL_DIR_NAME = "original"
-    PREPROCESSED_DIR_NAME = "preprocessed5" #TODO REMEMBER TO CHANGE THIS in preprocessed_hpss
+    TEST = "pitch_shift" #"speed_change"
+    PREPROCESSED_DIR_NAME = f"preprocessed_{TEST}_test"
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(
@@ -128,7 +129,11 @@ class MusdbContrastivePreprocessed(Dataset):
         tracks = original_dir.glob("*/")
 
         for track in tqdm(tracks, desc="Preprocessing tracks"):
-            stems_paths = [path for path in track.glob("*.wav") if path.name != "mixture.wav"]
+            if self.TEST == "pitch_shift":
+                stems_paths = [path for path in track.glob("*.wav") if path.name != "mixture.wav" and path.name != "drums.wav"]
+            else:
+                stems_paths = [path for path in sorted(track.glob("*.wav")) if path.name != "mixture.wav"]
+
             original_track_name = track.name
             chunk_num_frames = self.chunk_duration * self.target_sample_rate
             frame_offset = 0
@@ -139,18 +144,26 @@ class MusdbContrastivePreprocessed(Dataset):
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
                     for stem_path in stems_paths]
+                
+                if self.TEST == "pitch_shift":
+                    stems_idxs = range(len(stems))
+                else:
+                    stems_idxs = [i for i in range(len(stems)) if i != 1]
 
-                stems_idxs = range(len(stems))
                 for i in range(len(stems[0])):
                     anchor_mix_size = random.randint(
                         1, len(stems_idxs) - 1) if self.generate_submixtures else 1
                     anchor_mix_idxs = random.sample(
                         stems_idxs, anchor_mix_size)
-
-                    positive_mix_size = random.randint(
-                        1, len(stems_idxs) - len(anchor_mix_idxs)) if self.generate_submixtures else 1
-                    positive_mix_idxs = random.sample(
-                        [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
+                    
+                    if self.TEST == "pitch_shift":
+                        positive_mix_size = random.randint(
+                            1, len(stems_idxs) - len(anchor_mix_idxs)) if self.generate_submixtures else 1
+                        positive_mix_idxs = random.sample(
+                            [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
+                    else:
+                        positive_mix_size = 1
+                        positive_mix_idxs = [1]
 
                     anchor_mix_id = '-'.join(str(idx)
                                              for idx in anchor_mix_idxs)
