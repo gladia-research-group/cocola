@@ -65,6 +65,7 @@ test_dataset_shifted = MusdbContrastivePreprocessed(
     download=False,
     preprocess=True, # Need to preprocess now because it is not used at training time
     split="train",
+    test="pitch_shift",
     chunk_duration=5,
     target_sample_rate=16000,
     generate_submixtures=True,

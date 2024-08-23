@@ -29,8 +29,6 @@ class MusdbContrastivePreprocessed(Dataset):
     URL = "https://zenodo.org/records/3338373/files/musdb18hq.zip"
     SAMPLE_RATE = 44100
     ORIGINAL_DIR_NAME = "original"
-    TEST = "pitch_shift" #"speed_change"
-    PREPROCESSED_DIR_NAME = f"preprocessed_{TEST}_test"
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(
@@ -39,6 +37,7 @@ class MusdbContrastivePreprocessed(Dataset):
             download=True,
             preprocess=True,
             split="train",
+            test="pitch_shift", #"speed_change",
             chunk_duration=5,
             target_sample_rate=16000,
             generate_submixtures=True,
@@ -51,6 +50,8 @@ class MusdbContrastivePreprocessed(Dataset):
         self.download = download
         self.preprocess = preprocess
         self.split = split
+        self.test = test
+        self.preprocessed_dir_name = f"preprocessed_{self.test}_test"
         self.chunk_duration = chunk_duration
         self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
@@ -78,7 +79,7 @@ class MusdbContrastivePreprocessed(Dataset):
             raise RuntimeError(
                 f"Preprocessed dataset split {self.split} not found. Please use `preprocess=True` to preprocess it.")
         logging.info(
-            f"Found preprocessed dataset split {self.split} at {(self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()}.")
+            f"Found preprocessed dataset split {self.split} at {(self.root_dir / self.preprocessed_dir_name / self.split).expanduser()}.")
 
         self.file_paths_df = self._load_file_paths()
 
@@ -93,7 +94,7 @@ class MusdbContrastivePreprocessed(Dataset):
 
     def _is_preprocessed(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
+            self.root_dir / self.preprocessed_dir_name / self.split).expanduser()
 
         if not preprocessed_dir.exists():
             return False
@@ -111,7 +112,7 @@ class MusdbContrastivePreprocessed(Dataset):
 
     def _preprocess_and_save(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
+            self.root_dir / self.preprocessed_dir_name / self.split).expanduser()
         preprocessed_dir.mkdir(parents=True)
 
         preprocessing_info = {
@@ -129,7 +130,7 @@ class MusdbContrastivePreprocessed(Dataset):
         tracks = original_dir.glob("*/")
 
         for track in tqdm(tracks, desc="Preprocessing tracks"):
-            if self.TEST == "pitch_shift":
+            if self.test == "pitch_shift":
                 stems_paths = [path for path in track.glob("*.wav") if path.name != "mixture.wav" and path.name != "drums.wav"]
             else:
                 stems_paths = [path for path in sorted(track.glob("*.wav")) if path.name != "mixture.wav"]
@@ -145,7 +146,7 @@ class MusdbContrastivePreprocessed(Dataset):
                     dim=1)
                     for stem_path in stems_paths]
                 
-                if self.TEST == "pitch_shift":
+                if self.test == "pitch_shift":
                     stems_idxs = range(len(stems))
                 else:
                     stems_idxs = [i for i in range(len(stems)) if i != 1]
@@ -156,7 +157,7 @@ class MusdbContrastivePreprocessed(Dataset):
                     anchor_mix_idxs = random.sample(
                         stems_idxs, anchor_mix_size)
                     
-                    if self.TEST == "pitch_shift":
+                    if self.test == "pitch_shift":
                         positive_mix_size = random.randint(
                             1, len(stems_idxs) - len(anchor_mix_idxs)) if self.generate_submixtures else 1
                         positive_mix_idxs = random.sample(
@@ -188,7 +189,7 @@ class MusdbContrastivePreprocessed(Dataset):
                 frame_offset += chunk_num_frames // 2
 
     def _load_file_paths(self) -> None:
-        split_dir = (self.root_dir / self.PREPROCESSED_DIR_NAME /
+        split_dir = (self.root_dir / self.preprocessed_dir_name /
                      self.split).expanduser()
         tracks = split_dir.glob("*/")
         file_paths_df = pd.concat(map(lambda track: pd.DataFrame(

@@ -37,13 +37,15 @@ def hpss(waveform, sample_rate=16000):
     processed_x = np.stack((mel_db_harmonic_x, mel_db_percussive_x), axis=0)
     processed_x = torch.from_numpy(processed_x)
     return processed_x
- 
-def pitch_shift_hpss(data, sample_rate=16000):
+
+def speed_change_hpss(data, sample_rate=16000, target_chunk_duration=5):
     x, y = data["anchor"], data["positive"]
-    n_steps = random.choice([1, 6, 8, 10, 11, -1, -6, -8, -10, -11])
-    y = torchaudio.functional.pitch_shift(y, sample_rate=sample_rate, n_steps=n_steps)
-    processed_x = hpss(x)
-    processed_y = hpss(y)
+
+    factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75])
+    y = torchaudio.functional.speed(y, sample_rate, factor)
+
+    processed_x = hpss(x[:, :sample_rate*target_chunk_duration])
+    processed_y = hpss(y[:, :sample_rate*target_chunk_duration])
     processed = {
         "anchor": processed_x,
         "positive": processed_y
@@ -56,6 +58,8 @@ CHECKPOINT = '/speech/dbwork/mul/spielwiese3/demancum/cocola_hpss/ciflwfwc/check
 model = CoCola.load_from_checkpoint(CHECKPOINT)
 trainer = Trainer()
 
+model.set_embedding_mode(constants.EmbeddingMode.HARMONIC) # constants.EmbeddingMode.PERCUSSIVE, constants.EmbeddingMode.BOTH or constants.EmbeddingMode.HARMONIC
+
 
 # Using train split since it is not used from training
 test_dataset_shifted = MusdbContrastivePreprocessed(
@@ -63,13 +67,13 @@ test_dataset_shifted = MusdbContrastivePreprocessed(
     download=False,
     preprocess=True, # Need to preprocess now because it is not used at training time
     split="train",
-    test="pitch_shift",
-    chunk_duration=5,
+    test="speed_change",
+    chunk_duration=15,
     target_sample_rate=16000,
     generate_submixtures=True,
     device="cuda",
     #transform=hpss
-    runtime_transform=pitch_shift_hpss
+    runtime_transform=speed_change_hpss
 )
 
 test_dataloader = DataLoader(
@@ -81,7 +85,5 @@ test_dataloader = DataLoader(
     persistent_workers=True
     )
 
-print("PERCUSSIVE RESULTS")
-
-model.set_embedding_mode(constants.EmbeddingMode.PERCUSSIVE)
+print("HARMONIC RESULTS")
 trainer.test(model=model, dataloaders=test_dataloader)
