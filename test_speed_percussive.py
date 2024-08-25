@@ -42,7 +42,7 @@ def speed_change_hpss(data, sample_rate=16000, target_chunk_duration=5):
     x, y = data["anchor"], data["positive"]
 
     factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75])
-    y = torchaudio.functional.speed(y, sample_rate, factor)
+    y, _ = torchaudio.functional.speed(y, sample_rate, factor)
 
     processed_x = hpss(x[:, :sample_rate*target_chunk_duration])
     processed_y = hpss(y[:, :sample_rate*target_chunk_duration])
