@@ -4,10 +4,7 @@ from torch.utils.data import DataLoader, random_split
 from lightning.pytorch import Trainer
 import numpy as np
 from contrastive_model.contrastive_model import CoCola
-from data.coco_chorales_contrastive_preprocessed import CocoChoralesContrastivePreprocessed
-from data.moisesdb_contrastive_preprocessed import MoisesdbContrastivePreprocessed
-from data.slakh2100_contrastive_preprocessed import Slakh2100ContrastivePreprocessed
-from data.musdb_contrastive_preprocessed import MusdbContrastivePreprocessed
+from data.musdb_speed_test import MusdbContrastivePreprocessed
 from contrastive_model import constants
 import librosa 
 import torchaudio
@@ -39,13 +36,22 @@ def hpss(waveform, sample_rate=16000):
     return processed_x
  
 def speed_change_hpss(data, sample_rate=16000, target_chunk_duration=5):
-    x, y = data["anchor"], data["positive"]
+    x, y, z = data["anchor"], data["positive"], data["drums"]
+
+    # torchaudio.save("anchor.wav", x, sample_rate=sample_rate)
+    # torchaudio.save("positive.wav", y, sample_rate=sample_rate)
+    # torchaudio.save("drums.wav", z, sample_rate=sample_rate)
 
     factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75]) #factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75]) #factor = random.choice([1.50])
-    y, _ = torchaudio.functional.speed(y, sample_rate, factor)
+    z, _ = torchaudio.functional.speed(z, sample_rate, factor)
+    z = z[:, :sample_rate*target_chunk_duration]
 
-    processed_x = hpss(x[:, :sample_rate*target_chunk_duration])
-    processed_y = hpss(y[:, :sample_rate*target_chunk_duration])
+    y += z
+
+    # torchaudio.save("positive_drums_speed_changed.wav", y, sample_rate=sample_rate)
+
+    processed_x = hpss(x)
+    processed_y = hpss(y)
     processed = {
         "anchor": processed_x,
         "positive": processed_y
