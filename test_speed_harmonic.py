@@ -37,12 +37,12 @@ def hpss(waveform, sample_rate=16000):
     processed_x = np.stack((mel_db_harmonic_x, mel_db_percussive_x), axis=0)
     processed_x = torch.from_numpy(processed_x)
     return processed_x
-
+ 
 def speed_change_hpss(data, sample_rate=16000, target_chunk_duration=5):
     x, y = data["anchor"], data["positive"]
 
-    factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75])
-    y = torchaudio.functional.speed(y, sample_rate, factor)
+    factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75]) #factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75]) #factor = random.choice([1.50])
+    y, _ = torchaudio.functional.speed(y, sample_rate, factor)
 
     processed_x = hpss(x[:, :sample_rate*target_chunk_duration])
     processed_y = hpss(y[:, :sample_rate*target_chunk_duration])
@@ -53,12 +53,10 @@ def speed_change_hpss(data, sample_rate=16000, target_chunk_duration=5):
     return processed
 
 
-CHECKPOINT = '/speech/dbwork/mul/spielwiese3/demancum/cocola_hpss/ciflwfwc/checkpoints/epoch=59-step=377880.ckpt' #astral-valley-21 more_negative_RAND_MASK_DOUBLE_CHANNEL
+CHECKPOINT = '/speech/dbwork/mul/spielwiese3/demancum/cocola_hpss/10izn5cw/checkpoints/checkpoint-epoch=119-val_loss=0.00.ckpt' #young-sun-27 No_double_neg_HPSS
 
 model = CoCola.load_from_checkpoint(CHECKPOINT)
 trainer = Trainer()
-
-model.set_embedding_mode(constants.EmbeddingMode.HARMONIC) # constants.EmbeddingMode.PERCUSSIVE, constants.EmbeddingMode.BOTH or constants.EmbeddingMode.HARMONIC
 
 
 # Using train split since it is not used from training
@@ -86,4 +84,6 @@ test_dataloader = DataLoader(
     )
 
 print("HARMONIC RESULTS")
+
+model.set_embedding_mode(constants.EmbeddingMode.HARMONIC)
 trainer.test(model=model, dataloaders=test_dataloader)
