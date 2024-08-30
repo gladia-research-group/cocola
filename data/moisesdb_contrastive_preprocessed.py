@@ -35,6 +35,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
             self,
             root_dir="~/moisesdb_contrastive",
             preprocess=True,
+            split="train",
             chunk_duration=5,
             target_sample_rate=16000,
             generate_submixtures=True,
@@ -45,17 +46,22 @@ class MoisesdbContrastivePreprocessed(Dataset):
         self.root_dir = Path(root_dir) if isinstance(
             root_dir, str) else root_dir
         self.preprocess = preprocess
+        self.split = split
         self.chunk_duration = chunk_duration
         self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
         self.preprocess_transform = preprocess_transform
         self.runtime_transform = runtime_transform
 
+        if self.split not in ["train", "valid", "test"]:
+            raise ValueError(
+                "`split` must be one of ['train', 'valid', 'test'].")
+
         if not self._is_downloaded_and_extracted():
             raise RuntimeError(
-                f"Dataset not found. Please download Moisesdb and extract it inside {self.root_dir / self.ORIGINAL_DIR_NAME}.")
+                f"Dataset split {self.split} not found.")
         logging.info(
-            f"Found original dataset at {(self.root_dir / self.ORIGINAL_DIR_NAME).expanduser()}.")
+            f"Found original dataset split {self.split} at {(self.root_dir / self.ORIGINAL_DIR_NAME / self.split).expanduser()}.")
 
         if self.preprocess and not self._is_preprocessed():
             self.device = device
@@ -64,19 +70,20 @@ class MoisesdbContrastivePreprocessed(Dataset):
             self._preprocess_and_save()
         if not self._is_preprocessed():
             raise RuntimeError(
-                f"Preprocessed dataset not found. Please use `preprocess=True` to preprocess it.")
+                f"Preprocessed dataset split {self.split} not found. Please use `preprocess=True` to preprocess it.")
         logging.info(
-            f"Found preprocessed dataset at {(self.root_dir / self.PREPROCESSED_DIR_NAME).expanduser()}.")
+            f"Found preprocessed dataset split {self.split} at {(self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()}.")
 
         self.file_paths_df = self._load_file_paths()
 
     def _is_downloaded_and_extracted(self) -> bool:
-        original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME).expanduser()
-        return original_dir.exists() and any(original_dir.iterdir())
+        split_dir = (self.root_dir / self.ORIGINAL_DIR_NAME /
+                     self.split).expanduser()
+        return split_dir.exists() and any(split_dir.iterdir())
 
     def _is_preprocessed(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / self.PREPROCESSED_DIR_NAME).expanduser()
+            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
 
         if not preprocessed_dir.exists():
             return False
@@ -94,7 +101,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
 
     def _preprocess_and_save(self) -> bool:
         preprocessed_dir = (
-            self.root_dir / self.PREPROCESSED_DIR_NAME).expanduser()
+            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
         preprocessed_dir.mkdir(parents=True)
 
         preprocessing_info = {
@@ -106,7 +113,8 @@ class MoisesdbContrastivePreprocessed(Dataset):
         with open(preprocessed_dir / self.PREPROCESSING_INFO_FILE_NAME, "w") as preprocessing_info_file:
             json.dump(preprocessing_info, preprocessing_info_file)
 
-        original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME).expanduser()
+        original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME /
+                        self.split).expanduser()
 
         tracks = original_dir.glob("*/")
 
@@ -162,7 +170,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
 
     def _load_file_paths(self) -> None:
         preprocessed_dir = (
-            self.root_dir / self.PREPROCESSED_DIR_NAME).expanduser()
+            self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
         tracks = preprocessed_dir.glob("*/")
         file_paths_df = pd.concat(map(lambda track: pd.DataFrame(
             [[track / "anchor.pt", track / "positive.pt"]], columns=["anchor", "positive"]), tracks), ignore_index=True)

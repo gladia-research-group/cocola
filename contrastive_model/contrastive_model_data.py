@@ -170,8 +170,9 @@ class CoColaDataModule(L.LightningDataModule):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         root_dir = self.root_dir / "moisesdb_contrastive"
 
-        dataset = MoisesdbContrastivePreprocessed(
+        train_dataset = MoisesdbContrastivePreprocessed(
             root_dir=root_dir,
+            split="train",
             preprocess=True,
             chunk_duration=self.chunk_duration,
             target_sample_rate=self.target_sample_rate,
@@ -180,8 +181,27 @@ class CoColaDataModule(L.LightningDataModule):
             preprocess_transform=self.transform
         )
 
-        train_dataset, val_dataset, test_dataset = random_split(
-            dataset=dataset, lengths=[0.8, 0.1, 0.1], generator=torch.Generator().manual_seed(42))
+        val_dataset = MoisesdbContrastivePreprocessed(
+            root_dir=root_dir,
+            split="valid",
+            preprocess=True,
+            chunk_duration=self.chunk_duration,
+            target_sample_rate=self.target_sample_rate,
+            generate_submixtures=self.generate_submixtures,
+            device=device,
+            preprocess_transform=self.transform
+        )
+
+        test_dataset = MoisesdbContrastivePreprocessed(
+            root_dir=root_dir,
+            split="test",
+            preprocess=True,
+            chunk_duration=self.chunk_duration,
+            target_sample_rate=self.target_sample_rate,
+            generate_submixtures=self.generate_submixtures,
+            device=device,
+            preprocess_transform=self.transform
+        )
         
         return train_dataset, val_dataset, test_dataset
 
