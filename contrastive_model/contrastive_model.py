@@ -62,7 +62,7 @@ class EfficientNetEncoder(nn.Module):
             nn.Flatten()
         )
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.model(x)
 
 
@@ -81,7 +81,7 @@ class CoColaEncoder(nn.Module):
             dropout_p=self.dropout_p, in_channels=in_channels)
         self.projection = nn.Linear(1280, self.embedding_dim)
 
-    def forward(self, x):
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         if self.input_type == constants.ModelInputType.SINGLE_CHANNEL_HARMONIC:
             x = x[:, 0, :, :].unsqueeze(1)
         elif self.input_type == constants.ModelInputType.SINGLE_CHANNEL_PERCUSSIVE:
