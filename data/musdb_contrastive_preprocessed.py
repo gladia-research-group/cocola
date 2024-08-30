@@ -130,10 +130,7 @@ class MusdbContrastivePreprocessed(Dataset):
         tracks = original_dir.glob("*/")
 
         for track in tqdm(tracks, desc="Preprocessing tracks"):
-            if self.test == "pitch_shift":
-                stems_paths = [path for path in track.glob("*.wav") if path.name != "mixture.wav"]
-            else:
-                stems_paths = [path for path in sorted(track.glob("*.wav")) if path.name != "mixture.wav"]
+            stems_paths = [path for path in sorted(track.glob("*.wav")) if path.name != "mixture.wav"]
 
             original_track_name = track.name
             chunk_num_frames = self.chunk_duration * self.target_sample_rate
@@ -152,22 +149,29 @@ class MusdbContrastivePreprocessed(Dataset):
                     stems_idxs = [i for i in range(len(stems)) if i != 1]
 
                 for i in range(len(stems[0])):
-                    anchor_mix_size = 2
+                    anchor_mix_size = random.randint(
+                        1, len(stems_idxs) - 1) if self.generate_submixtures else 1
                     anchor_mix_idxs = random.sample(
                         stems_idxs, anchor_mix_size)
+
+                    positive_mix_size = random.randint(
+                        1, len(stems_idxs) - len(anchor_mix_idxs)) if self.generate_submixtures else 1
+                    positive_mix_idxs = random.sample(
+                        [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
+                    drums_idx = 1
                     
-                    if self.test == "pitch_shift":
-                        positive_mix_size = 2
-                        positive_mix_idxs = random.sample(
-                            [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
-                    else:
-                        positive_mix_size = 1
-                        positive_mix_idxs = [1]
+                    choice = random.randint(0,2)
+                    if choice == 0:
+                        anchor_mix_idxs.append(drums_idx)
+                    elif choice == 1:
+                        positive_mix_idxs.append(drums_idx)
 
                     anchor_mix_id = '-'.join(str(idx)
                                              for idx in anchor_mix_idxs)
                     positive_mix_id = '-'.join(str(idx)
                                                for idx in positive_mix_idxs)
+                    #drums_id = '1'
+                    
 
                     example_id = f"{original_track_name}_chunk{i}_comb{anchor_mix_id}_{positive_mix_id}_shift{frame_offset}"
                     example_path = preprocessed_dir / example_id

@@ -147,12 +147,15 @@ class MusdbContrastivePreprocessed(Dataset):
                 stems_idxs = [i for i in range(len(stems)) if i != 1]
 
                 for i in range(len(stems[0])):
-                    anchor_mix_size = 2
+                    anchor_mix_size = random.randint(
+                        1, len(stems_idxs) - 1) if self.generate_submixtures else 1
                     anchor_mix_idxs = random.sample(
                         stems_idxs, anchor_mix_size)
-                    
-                    positive_mix_idxs = [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs]
 
+                    positive_mix_size = random.randint(
+                        1, len(stems_idxs) - len(anchor_mix_idxs)) if self.generate_submixtures else 1
+                    positive_mix_idxs = random.sample(
+                        [stem_idx for stem_idx in stems_idxs if stem_idx not in anchor_mix_idxs], positive_mix_size)
                     drums_idx = 1
 
                     anchor_mix_id = '-'.join(str(idx)

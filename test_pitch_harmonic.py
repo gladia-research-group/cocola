@@ -40,8 +40,14 @@ def hpss(waveform, sample_rate=16000):
  
 def pitch_shift_hpss(data, sample_rate=16000):
     x, y = data["anchor"], data["positive"]
-    n_steps = random.choice([1, 6, 8, 10, 11, -1, -6, -8, -10, -11]) #[1, 6, 8, 10, 11, -1, -6, -8, -10, -11]
+
+    #torchaudio.save("/home/demancum/cocola/anchor_pitch.wav", x, sample_rate=sample_rate)
+    #torchaudio.save("/home/demancum/cocola/positive_pitch.wav", y, sample_rate=sample_rate)
+
+    n_steps = random.choice([1, 6, -6, -11]) #[1, 6, 8, 10, 11, -1, -6, -8, -10, -11]
     y = torchaudio.functional.pitch_shift(y, sample_rate=sample_rate, n_steps=n_steps)
+    #torchaudio.save("/home/demancum/cocola/positive_pitch_shifted.wav", y, sample_rate=sample_rate)
+   
     processed_x = hpss(x)
     processed_y = hpss(y)
     processed = {

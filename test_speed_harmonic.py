@@ -45,7 +45,8 @@ def speed_change_hpss(data, sample_rate=16000, target_chunk_duration=5):
     factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75]) #factor = random.choice([0.25, 0.50, 0.75, 1.25, 1.50, 1.75]) #factor = random.choice([1.50])
     z, _ = torchaudio.functional.speed(z, sample_rate, factor)
     z = z[:, :sample_rate*target_chunk_duration]
-
+    y = y[:, :sample_rate*target_chunk_duration]
+    x = x[:, :sample_rate*target_chunk_duration]
     y += z
 
     # torchaudio.save("positive_drums_speed_changed.wav", y, sample_rate=sample_rate)

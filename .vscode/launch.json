@@ -2,6 +2,18 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "test",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/demancum/cocola/test_speed_percussive.py",
+            "pythonPath": "/home/demancum/miniconda3/envs/cocola/bin/python",
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+            },
+            "console": "integratedTerminal",
+            "cwd": "/speech/dbwork/mul/spielwiese3/demancum"
+        },
+        {
             "name": "train",
             "type": "python",
             "request": "launch",
