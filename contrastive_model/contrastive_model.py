@@ -82,10 +82,6 @@ class CoColaEncoder(nn.Module):
         self.projection = nn.Linear(1280, self.embedding_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        if self.input_type == constants.ModelInputType.SINGLE_CHANNEL_HARMONIC:
-            x = x[:, 0, :, :].unsqueeze(1)
-        elif self.input_type == constants.ModelInputType.SINGLE_CHANNEL_PERCUSSIVE:
-            x = x[:, 1, :, :].unsqueeze(1)
         embeddings = self.encoder(x)
         projected = self.projection(embeddings)
         return projected

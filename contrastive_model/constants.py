@@ -25,11 +25,8 @@ class Dataset(enum.Enum):
 
 @enum.unique
 class ModelInputType(enum.Enum):
-    """Look up for CoCola HPSS Model input types."""
-
-    SINGLE_CHANNEL_HARMONIC = 'single_channel_harmonic'
-
-    SINGLE_CHANNEL_PERCUSSIVE = 'single_channel_percussive'
+    """Look up for CoCola Model input types."""
+    SINGLE_CHANNEL_MEL_SPECTROGRAM = 'single_channel_mel_spectrogram'
 
     DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE = 'double_channel_harmonic_percussive'
 
