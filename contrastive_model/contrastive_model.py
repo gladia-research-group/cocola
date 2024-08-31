@@ -144,7 +144,7 @@ class CoCola(L.LightningModule):
         scores = self.similarity.pairwise(x_embeddings, y_embeddings)
         return scores
 
-    def forward(self, x, use_anchors_as_negatives=True):
+    def forward(self, x):
         anchors, positives = x["anchor"], x["positive"]
         if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE:
             if self.embedding_mode == constants.EmbeddingMode.RANDOM:
@@ -168,23 +168,14 @@ class CoCola(L.LightningModule):
         
         anchor_embeddings = self.tanh(self.layer_norm(anchor_embeddings))
         positive_embeddings = self.tanh(self.layer_norm(positive_embeddings))
-        if use_anchors_as_negatives:
-            embeddings = torch.cat((anchor_embeddings, positive_embeddings), 0)
 
-            similarities = self.similarity(embeddings, embeddings)
-            batch_size = anchor_embeddings.shape[0]
-            mask = torch.eye(
-                2 * batch_size, dtype=torch.bool, device=similarities.device)
-            similarities = similarities[~mask].reshape(2 * batch_size, -1)
-        else:
-            similarities = self.similarity(anchor_embeddings, positive_embeddings)
+        similarities = self.similarity(anchor_embeddings, positive_embeddings)
         return similarities
 
     def training_step(self, x, batch_idx):
         similarities = self(x)
-        batch_size = similarities.shape[0] // 2
-        labels = torch.cat(
-            (torch.arange(batch_size - 1, 2 * batch_size - 1), torch.arange(batch_size))).to(similarities.device)
+        labels = torch.arange(
+            similarities.size(0), device=similarities.device)
 
         loss = F.cross_entropy(similarities, labels)
 
@@ -193,14 +184,12 @@ class CoCola(L.LightningModule):
 
         self.log("train_loss", loss)
         self.log("train_accuracy", accuracy)
-
         return loss
 
     def validation_step(self, x, batch_idx):
         similarities = self(x)
-        batch_size = similarities.shape[0] // 2
-        labels = torch.cat(
-            (torch.arange(batch_size - 1, 2 * batch_size - 1), torch.arange(batch_size))).to(similarities.device)
+        labels = torch.arange(
+            similarities.size(0), device=similarities.device)
 
         loss = F.cross_entropy(similarities, labels)
 
@@ -211,14 +200,14 @@ class CoCola(L.LightningModule):
         self.log("valid_accuracy", accuracy)
 
     def test_step(self, x, batch_idx):
-        similarities = self(x, use_anchors_as_negatives=False)
-        sparse_labels = torch.arange(
+        similarities = self(x)
+        labels = torch.arange(
             similarities.size(0), device=similarities.device)
 
-        loss = F.cross_entropy(similarities, sparse_labels)
+        loss = F.cross_entropy(similarities, labels)
 
         _, predicted = torch.max(similarities, 1)
-        accuracy = (predicted == sparse_labels).double().mean()
+        accuracy = (predicted == labels).double().mean()
 
         self.log("test_loss", loss)
         self.log("test_accuracy", accuracy)

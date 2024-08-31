@@ -58,7 +58,7 @@ model:
 data:
   root_dir: /disk1/demancum/
   dataset: MIXED
-  batch_size: 16
+  batch_size: 32
   chunk_duration: 5
   target_sample_rate: 16000
   generate_submixtures: true
