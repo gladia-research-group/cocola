@@ -16,7 +16,7 @@ trainer:
         monitor: valid_loss
         save_top_k: 5
         mode: min
-        filename: checkpoint-{epoch}-{val_loss:.2f}
+        filename: checkpoint-{epoch}-{val_loss:.4f}
   fast_dev_run: false
   max_epochs: 500
   min_epochs: null
