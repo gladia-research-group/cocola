@@ -4,7 +4,6 @@ from typing import Dict, Literal
 from pathlib import Path
 import random
 import logging
-import shutil
 import json
 
 import pandas as pd
@@ -99,14 +98,35 @@ class MusdbContrastivePreprocessed(Dataset):
 
         with open(preprocessed_dir / self.PREPROCESSING_INFO_FILE_NAME, "r") as preprocessing_info_file:
             preprocessing_info = json.load(preprocessing_info_file)
-            if preprocessing_info["chunk_duration"] != self.chunk_duration or \
-               preprocessing_info["target_sample_rate"] != self.target_sample_rate or \
-               preprocessing_info["generate_submixtures"] != self.generate_submixtures:
-                logging.info(
-                    "Found preprocessed dataset with different preprocessing parameters. Overwriting with new preprocessed dataset.")
-                shutil.rmtree(preprocessed_dir)
+            conflicting_params = self._check_preprocessing_params(
+                preprocessing_info)
+            if conflicting_params:
+                logging.error(
+                    f"Found preprocessed dataset split {self.split} with conflicting preprocessing parameters "
+                    f"at {(self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()}.\n"
+                    f"To resolve this issue, please verify the preprocessing parameters or "
+                    f"either manually delete or move the existing preprocessed dataset to another location.\n"
+                    f"Conflicts:\n\t"
+                    + '\n\t'.join(conflicting_params)
+                )
+                raise RuntimeError("Conflict in preprocessing parameters.")
 
         return preprocessed_dir.exists() and any(preprocessed_dir.iterdir())
+
+    def _check_preprocessing_params(self, preprocessing_info: dict) -> list:
+        parameters_to_check = {
+            "chunk_duration": self.chunk_duration,
+            "target_sample_rate": self.target_sample_rate,
+            "generate_submixtures": self.generate_submixtures
+        }
+        conflicting_params = []
+        for param_name, expected_value in parameters_to_check.items():
+            actual_value = preprocessing_info.get(param_name)
+
+            if actual_value != expected_value:
+                conflicting_params.append(
+                    f"{param_name}: {actual_value} (expected: {expected_value})")
+        return conflicting_params
 
     def _preprocess_and_save(self) -> bool:
         preprocessed_dir = (
@@ -128,7 +148,8 @@ class MusdbContrastivePreprocessed(Dataset):
         tracks = original_dir.glob("*/")
 
         for track in tqdm(tracks, desc="Preprocessing tracks"):
-            stems_paths = [path for path in track.glob("*.wav") if path.name != "mixture.wav"]
+            stems_paths = [path for path in track.glob(
+                "*.wav") if path.name != "mixture.wav"]
             original_track_name = track.name
             chunk_num_frames = self.chunk_duration * self.target_sample_rate
             frame_offset = 0
@@ -191,9 +212,9 @@ class MusdbContrastivePreprocessed(Dataset):
 
         anchor, positive = torch.load(anchor_path, map_location="cpu"), torch.load(
             positive_path, map_location="cpu")
-        
+
         item = {"anchor": anchor, "positive": positive}
-        
+
         if self.runtime_transform:
             item = self.runtime_transform(item)
 
