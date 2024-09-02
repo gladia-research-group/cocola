@@ -23,12 +23,30 @@ class Dataset(enum.Enum):
 
     MIXED = "mixed_contrastive"
 
+
 @enum.unique
 class ModelInputType(enum.Enum):
     """Look up for CoCola Model input types."""
     SINGLE_CHANNEL_MEL_SPECTROGRAM = 'single_channel_mel_spectrogram'
 
     DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE = 'double_channel_harmonic_percussive'
+
+
+@enum.unique
+class ModelFeatureExtractorType(enum.Enum):
+    """Look up for CoCola data feature extraction types."""
+    HPSS = 'hpss'
+
+    MEL_SPECTROGRAM = 'mel_spectrogram'
+
+
+@enum.unique
+class FeatureExtractionTime(enum.Enum):
+    """Look up for CoCola data feature extraction time."""
+    OFFLINE = 'offline'
+
+    ONLINE = 'online'
+
 
 @enum.unique
 class EmbeddingMode(enum.Enum):
@@ -38,5 +56,5 @@ class EmbeddingMode(enum.Enum):
     PERCUSSIVE = 'percussive'
 
     BOTH = 'both'
-    
+
     RANDOM = 'random'

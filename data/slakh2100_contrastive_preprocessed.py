@@ -55,6 +55,12 @@ class Slakh2100ContrastivePreprocessed(Dataset):
         self.preprocess_transform = preprocess_transform
         self.runtime_transform = runtime_transform
 
+        self.preprocessing_info = {
+            "chunk_duration": self.chunk_duration,
+            "target_sample_rate": self.target_sample_rate,
+            "generate_submixtures": self.generate_submixtures
+        }
+
         if self.split not in ["train", "test", "validation"]:
             raise ValueError(
                 "`split` must be one of ['train', 'test', 'validation].")
@@ -114,13 +120,8 @@ class Slakh2100ContrastivePreprocessed(Dataset):
         return preprocessed_dir.exists() and any(preprocessed_dir.iterdir())
 
     def _check_preprocessing_params(self, preprocessing_info: dict) -> list:
-        parameters_to_check = {
-            "chunk_duration": self.chunk_duration,
-            "target_sample_rate": self.target_sample_rate,
-            "generate_submixtures": self.generate_submixtures
-        }
         conflicting_params = []
-        for param_name, expected_value in parameters_to_check.items():
+        for param_name, expected_value in self.preprocessing_info.items():
             actual_value = preprocessing_info.get(param_name)
 
             if actual_value != expected_value:
@@ -133,14 +134,9 @@ class Slakh2100ContrastivePreprocessed(Dataset):
             self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
 
         preprocessed_dir.mkdir(parents=True)
-        preprocessing_info = {
-            "chunk_duration": self.chunk_duration,
-            "target_sample_rate": self.target_sample_rate,
-            "generate_submixtures": self.generate_submixtures
-        }
 
         with open(preprocessed_dir / self.PREPROCESSING_INFO_FILE_NAME, "w") as preprocessing_info_file:
-            json.dump(preprocessing_info, preprocessing_info_file)
+            json.dump(self.preprocessing_info, preprocessing_info_file)
 
         original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME / "slakh2100_redux_16k" /
                         self.split).expanduser()

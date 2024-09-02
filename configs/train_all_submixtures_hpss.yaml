@@ -6,10 +6,10 @@ trainer:
   devices: auto
   num_nodes: 1
   precision: null
-  logger:
-    class_path: lightning.pytorch.loggers.WandbLogger
-    init_args:
-      project: cocola_hpss
+  # logger:
+  #   class_path: lightning.pytorch.loggers.WandbLogger
+  #   init_args:
+  #     project: cocola_hpss
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
@@ -56,10 +56,12 @@ model:
   input_type: DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
   dropout_p: 0.1
 data:
-  root_dir: /disk1/demancum/
+  root_dir: ~/
   dataset: MIXED
   batch_size: 32
   chunk_duration: 5
   target_sample_rate: 16000
   generate_submixtures: true
+  feature_extractor_type: HPSS
+  feature_extraction_time: OFFLINE
 ckpt_path: null

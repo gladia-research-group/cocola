@@ -12,6 +12,7 @@ import librosa
 import numpy as np
 
 from contrastive_model import constants
+from feature_extraction.feature_extraction import CoColaFeatureExtractor
 from data.coco_chorales_contrastive_preprocessed import CocoChoralesContrastivePreprocessed
 from data.moisesdb_contrastive_preprocessed import MoisesdbContrastivePreprocessed
 from data.slakh2100_contrastive_preprocessed import Slakh2100ContrastivePreprocessed
@@ -48,7 +49,9 @@ class CoColaDataModule(L.LightningDataModule):
                  batch_size: int = 32,
                  chunk_duration: int = 5,
                  target_sample_rate: int = 16000,
-                 generate_submixtures: bool = True):
+                 generate_submixtures: bool = True,
+                 feature_extractor_type: constants.ModelFeatureExtractorType = constants.ModelFeatureExtractorType.HPSS,
+                 feature_extraction_time: constants.FeatureExtractionTime = constants.FeatureExtractionTime.OFFLINE):
         super().__init__()
         self.save_hyperparameters()
         self.root_dir = Path(root_dir)
@@ -57,7 +60,17 @@ class CoColaDataModule(L.LightningDataModule):
         self.chunk_duration = chunk_duration
         self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
-        self.transform = hpss
+        self.feature_extractor_type = feature_extractor_type
+        self.feature_extraction_time = feature_extraction_time
+
+        feature_extractor = CoColaFeatureExtractor(
+            feature_extractor_type=self.feature_extractor_type)
+        self.preprocess_transform = None
+        self.runtime_transform = None
+        if self.feature_extraction_time == constants.FeatureExtractionTime.OFFLINE:
+            self.preprocess_transform = feature_extractor
+        elif self.feature_extraction_time == constants.FeatureExtractionTime.ONLINE:
+            self.runtime_transform = feature_extractor
 
     def setup(self, stage: str):
         if self.dataset in {constants.Dataset.CCS,
@@ -108,7 +121,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform)
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
 
             val_dataset = CocoChoralesContrastivePreprocessed(
                 root_dir=root_dir,
@@ -120,7 +134,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform)
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
         elif stage == "test":
             test_dataset = CocoChoralesContrastivePreprocessed(
                 root_dir=root_dir,
@@ -132,7 +147,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform)
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
 
         return train_dataset, val_dataset, test_dataset
 
@@ -151,8 +167,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform)
-
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
             val_dataset = Slakh2100ContrastivePreprocessed(
                 root_dir=root_dir,
                 download=True,
@@ -162,7 +178,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform)
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
         elif stage == "test":
             test_dataset = Slakh2100ContrastivePreprocessed(
                 root_dir=root_dir,
@@ -173,7 +190,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform)
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
 
         return train_dataset, val_dataset, test_dataset
 
@@ -191,8 +209,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform
-            )
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
 
             val_dataset = MoisesdbContrastivePreprocessed(
                 root_dir=root_dir,
@@ -202,8 +220,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform
-            )
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
         elif stage == "test":
             test_dataset = MoisesdbContrastivePreprocessed(
                 root_dir=root_dir,
@@ -213,8 +231,8 @@ class CoColaDataModule(L.LightningDataModule):
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
-                preprocess_transform=self.transform
-            )
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
 
         return train_dataset, val_dataset, test_dataset
 
