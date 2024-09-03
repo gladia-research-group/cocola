@@ -17,7 +17,6 @@ import torchaudio.transforms as T
 from data.utils import right_pad, mix_stems
 
 random.seed(14703)
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
 
 class Slakh2100ContrastivePreprocessed(Dataset):

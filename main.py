@@ -4,7 +4,10 @@ import torch
 from contrastive_model.contrastive_model_data import CoColaDataModule
 from contrastive_model.contrastive_model import CoCola
 
+import logging
+
 torch.set_float32_matmul_precision('high')
+logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
 
 def cli_main():
