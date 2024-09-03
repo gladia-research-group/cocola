@@ -31,7 +31,7 @@ class BilinearSimilarity(nn.Module):
         projection_y = torch.matmul(self.w, y.t())
         similarities = torch.matmul(x, projection_y)
         return similarities
-    
+
     def pairwise(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Computes the vector of pairwise similarities between the elements of x and y.
 
@@ -102,7 +102,7 @@ class CoCola(L.LightningModule):
         self.embedding_mode = embedding_mode
         self.input_type = input_type
         self.dropout_p = dropout_p
-        
+
         self.encoder = CoColaEncoder(embedding_dim=self.embedding_dim,
                                      input_type=self.input_type,
                                      dropout_p=self.dropout_p)
@@ -141,6 +141,9 @@ class CoCola(L.LightningModule):
         x_embeddings, y_embeddings = torch.split(
             data_embeddings, data_embeddings.size(0) // 2, dim=0)
 
+        x_embeddings = self.tanh(self.layer_norm(x_embeddings))
+        y_embeddings = self.tanh(self.layer_norm(y_embeddings))
+
         scores = self.similarity.pairwise(x_embeddings, y_embeddings)
         return scores
 
@@ -165,7 +168,7 @@ class CoCola(L.LightningModule):
         data_embeddings = self.encoder(data)
         anchor_embeddings, positive_embeddings = torch.split(
             data_embeddings, data_embeddings.size(0) // 2, dim=0)
-        
+
         anchor_embeddings = self.tanh(self.layer_norm(anchor_embeddings))
         positive_embeddings = self.tanh(self.layer_norm(positive_embeddings))
 
