@@ -75,8 +75,8 @@ class CoColaFeatureExtractor(nn.Module):
                     n_fft=self.n_fft,
                     win_length=self.win_length,
                     hop_length=self.hop_length,
-                    f_min=self.fmin,
-                    f_max=self.fmax,
+                    f_min=self.f_min,
+                    f_max=self.f_max,
                     n_mels=self.n_mels,
                 ),
                 T.AmplitudeToDB()
@@ -85,8 +85,8 @@ class CoColaFeatureExtractor(nn.Module):
         self.n_fft = n_fft
         self.win_length = win_length
         self.hop_length = hop_length
-        self.fmin = f_min
-        self.fmax = f_max
+        self.f_min = f_min
+        self.f_max = f_max
         self.n_mels = n_mels
 
     def forward(self, x: Union[dict, torch.Tensor]):
@@ -104,3 +104,16 @@ class CoColaFeatureExtractor(nn.Module):
             return x
         else:
             return self.feature_extractor(x)
+
+    def to_dict(self):
+        """Used for serialization."""
+        return {
+            "feature_extractor_type": self.feature_extractor_type.value,
+            "sample_rate": self.sample_rate,
+            "n_fft": self.n_fft,
+            "win_length": self.win_length,
+            "hop_length": self.hop_length,
+            "f_min": self.f_min,
+            "f_max": self.f_max,
+            "n_mels": self.n_mels
+        }

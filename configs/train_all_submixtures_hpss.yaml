@@ -6,10 +6,10 @@ trainer:
   devices: auto
   num_nodes: 1
   precision: null
-  # logger:
-  #   class_path: lightning.pytorch.loggers.WandbLogger
-  #   init_args:
-  #     project: cocola_hpss
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      project: cocola_hpss
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:

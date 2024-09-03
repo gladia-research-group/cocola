@@ -58,7 +58,8 @@ class MusdbContrastivePreprocessed(Dataset):
         self.preprocessing_info = {
             "chunk_duration": self.chunk_duration,
             "target_sample_rate": self.target_sample_rate,
-            "generate_submixtures": self.generate_submixtures
+            "generate_submixtures": self.generate_submixtures,
+            "preprocess_transform": self.preprocess_transform.to_dict() if hasattr(self.preprocess_transform, "to_dict") else str(self.preprocess_transform)
         }
 
         if self.split not in ["train", "test"]:
