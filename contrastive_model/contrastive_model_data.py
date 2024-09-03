@@ -18,30 +18,6 @@ from data.moisesdb_contrastive_preprocessed import MoisesdbContrastivePreprocess
 from data.slakh2100_contrastive_preprocessed import Slakh2100ContrastivePreprocessed
 
 
-def hpss(waveform, sample_rate=16000):
-    x = waveform.squeeze(0).cpu().numpy()
-    stft_x = librosa.stft(x,
-                          n_fft=1024,
-                          win_length=400,
-                          hop_length=160)
-    harmonic_stft_x, percussive_stft_x = librosa.decompose.hpss(stft_x)
-    mel_harmonic_x = librosa.feature.melspectrogram(S=np.abs(harmonic_stft_x)**2,
-                                                    sr=sample_rate,
-                                                    fmin=60.0,
-                                                    fmax=7800.0,
-                                                    n_mels=64)
-    mel_percussive_x = librosa.feature.melspectrogram(S=np.abs(percussive_stft_x)**2,
-                                                      sr=sample_rate,
-                                                      fmin=60.0,
-                                                      fmax=7800.0,
-                                                      n_mels=64)
-    mel_db_harmonic_x = librosa.power_to_db(mel_harmonic_x, ref=np.max)
-    mel_db_percussive_x = librosa.power_to_db(mel_percussive_x, ref=np.max)
-    processed_x = np.stack((mel_db_harmonic_x, mel_db_percussive_x), axis=0)
-    processed_x = torch.from_numpy(processed_x)
-    return processed_x
-
-
 class CoColaDataModule(L.LightningDataModule):
     def __init__(self,
                  root_dir: str = "~",
@@ -91,19 +67,28 @@ class CoColaDataModule(L.LightningDataModule):
                 stage)
 
         elif self.dataset == constants.Dataset.MIXED:
-            coco_train_dataset, coco_val_dataset, coco_test_dataset = self._get_cocochorales_splits(
-                "random", stage=stage)
-            moisesdb_train_dataset, moisesdb_val_dataset, moisesdb_test_dataset = self._get_moisesdb_splits(
-                stage)
-            slakh_train_dataset, slakh_val_dataset, slakh_test_dataset = self._get_slakh2100_splits(
+            self.train_dataset, self.val_dataset, self.test_dataset = self._get_mixed_splits(
                 stage)
 
-            self.train_dataset = ConcatDataset(
+    def _get_mixed_splits(self, stage: str):
+        coco_train_dataset, coco_val_dataset, coco_test_dataset = self._get_cocochorales_splits(
+            "random", stage=stage)
+        moisesdb_train_dataset, moisesdb_val_dataset, moisesdb_test_dataset = self._get_moisesdb_splits(
+            stage)
+        slakh_train_dataset, slakh_val_dataset, slakh_test_dataset = self._get_slakh2100_splits(
+            stage)
+
+        train_dataset, val_dataset, test_dataset = None, None, None
+        if stage == 'fit':
+            train_dataset = ConcatDataset(
                 [coco_train_dataset, moisesdb_train_dataset, slakh_train_dataset])
-            self.val_dataset = ConcatDataset(
+            val_dataset = ConcatDataset(
                 [coco_val_dataset, moisesdb_val_dataset, slakh_val_dataset])
-            self.test_dataset = ConcatDataset(
+        elif stage == 'test':
+            test_dataset = ConcatDataset(
                 [coco_test_dataset, moisesdb_test_dataset, slakh_test_dataset])
+
+        return train_dataset, val_dataset, test_dataset
 
     def _get_cocochorales_splits(self, ensemble: str, stage: str):
         device = "cuda" if torch.cuda.is_available() else "cpu"
