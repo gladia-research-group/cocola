@@ -127,15 +127,21 @@ class CoCola(L.LightningModule):
         self.encoder.embedding_mode = embedding_mode
 
     def score(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
-        """Computes the COCOLA score between each element of x and y. 
+        """If x and y are batches of elements, computes the COCOLA score between each element of x and y.
+        Otherwise, computes the COCOLA score between x and y. 
 
         Args:
-            x (torch.Tensor): the first batch of spectrograms of shape (B, C, H, W).
-            y (torch.Tensor): the second batch of spectrograms of shape (B, C, H, W).
+            x (torch.Tensor): the first batch of spectrograms of shape (B, C, H, W) or (C,H,W).
+            y (torch.Tensor): the second batch of spectrograms of shape (B, C, H, W) or (C,H,W).
 
         Returns:
-            torch.Tensor: the batch of COCOLA scores of shape (B).
+            torch.Tensor: the batch of COCOLA scores of shape (B) or ().
         """
+        if len(x.shape) == 3:
+            x = x.unsqueeze(0)
+        if len(y.shape) == 3:
+            y = y.unsqueeze(0)
+
         data = torch.cat((x, y), dim=0)
         data_embeddings = self.encoder(data)
         x_embeddings, y_embeddings = torch.split(
@@ -145,6 +151,9 @@ class CoCola(L.LightningModule):
         y_embeddings = self.tanh(self.layer_norm(y_embeddings))
 
         scores = self.similarity.pairwise(x_embeddings, y_embeddings)
+        
+        if scores.shape[0] == 1:
+            scores = scores.squeeze(0)
         return scores
 
     def forward(self, x):

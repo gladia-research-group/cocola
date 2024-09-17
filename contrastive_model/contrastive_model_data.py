@@ -8,8 +8,6 @@ from pathlib import Path
 import lightning as L
 from torch.utils.data import DataLoader, ConcatDataset
 import torch
-import librosa
-import numpy as np
 
 from contrastive_model import constants
 from feature_extraction.feature_extraction import CoColaFeatureExtractor
