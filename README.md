@@ -52,7 +52,7 @@ Model Name | Model Checkpoint | Train Dataset | Train Config File | Description 
 |-------|-------|---------|-------------|---------|
 COCOLA_HP_v1| https://drive.google.com/file/d/1HdKgDV2wCdGwCWPlIIRm2ytlbUNah8fo/view?usp=sharing  | Moisesdb, Slakh2100, CocoChorales| `configs/train_all_submixtures_hpss.yaml`| Allows to compute COCOLA Score, COCOLA Harmonic Score and COCOLA Percussive Score.|
 
-### Example 1: calculating COCOLA (Harmonic/Percussive) Scores with COCOLA_HP_v1 on a of pair of music audio examples.
+### Example 1: calculating COCOLA (Harmonic/Percussive) Score with COCOLA_HP_v1 on a of pair of music audio examples.
 ```python
 from contrastive_model import constants
 from contrastive_model.contrastive_model import CoCola
