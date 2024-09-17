@@ -4,7 +4,7 @@ This is the official repository [COCOLA: Coherence-Oriented Contrastive Learning
 
 COCOLA is a contrastive model which is able to estimate the harmonic and rythmic coherence between pairs of music audio examples.
 
-![alt text](res/logo.jpg)
+![alt text](assets/logo.jpg)
 
 
 ## Installation
