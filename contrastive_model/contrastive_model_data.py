@@ -30,6 +30,7 @@ class CoColaDataModule(L.LightningDataModule):
                  feature_extraction_time: constants.FeatureExtractionTime = constants.FeatureExtractionTime.OFFLINE):
         super().__init__()
         self.save_hyperparameters()
+        
         self.root_dir = Path(root_dir)
         self.dataset = dataset
         self.batch_size = batch_size
