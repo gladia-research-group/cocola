@@ -2,6 +2,7 @@
 
 import enum
 
+
 @enum.unique
 class Dataset(enum.Enum):
     """Look up for dataset names."""
@@ -22,17 +23,38 @@ class Dataset(enum.Enum):
 
     MIXED = "mixed_contrastive"
 
-class EmbeddingModel(enum.Enum):
-    """Look up for embedding models."""
 
-    EFFICIENTNET = "efficientnet"
+@enum.unique
+class ModelInputType(enum.Enum):
+    """Look up for CoCola Model input types."""
+    SINGLE_CHANNEL_MEL_SPECTROGRAM = 'single_channel_mel_spectrogram'
 
-    CLAP = "clap"
+    DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE = 'double_channel_harmonic_percussive'
 
 
-class Logger(enum.Enum):
-    """Look up for loggers"""
+@enum.unique
+class ModelFeatureExtractorType(enum.Enum):
+    """Look up for CoCola data feature extraction types."""
+    HPSS = 'hpss'
 
-    WANDB = "wandb"
+    MEL_SPECTROGRAM = 'mel_spectrogram'
 
-    TENSORBOARD = "tensorboard"
+
+@enum.unique
+class FeatureExtractionTime(enum.Enum):
+    """Look up for CoCola data feature extraction time."""
+    OFFLINE = 'offline'
+
+    ONLINE = 'online'
+
+
+@enum.unique
+class EmbeddingMode(enum.Enum):
+    """Look up for selecting channels to use at inference time for DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE models."""
+    HARMONIC = 'harmonic'
+
+    PERCUSSIVE = 'percussive'
+
+    BOTH = 'both'
+
+    RANDOM = 'random'

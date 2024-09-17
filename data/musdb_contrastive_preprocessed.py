@@ -3,15 +3,13 @@
 from typing import Dict, Literal
 from pathlib import Path
 import random
-import os
 import logging
-import shutil
 import json
 
 import pandas as pd
 from tqdm import tqdm
 import torch
-from torch.utils.data import Dataset, DataLoader, random_split
+from torch.utils.data import Dataset
 from torchvision.datasets.utils import download_and_extract_archive
 import torchaudio
 import torchaudio.transforms as T
@@ -19,7 +17,6 @@ import torchaudio.transforms as T
 from data.utils import right_pad, mix_down, mix_stems
 
 random.seed(14703)
-logging.basicConfig(format='%(levelname)s:%(message)s', level=logging.INFO)
 
 
 class MusdbContrastivePreprocessed(Dataset):
@@ -30,31 +27,39 @@ class MusdbContrastivePreprocessed(Dataset):
     URL = "https://zenodo.org/records/3338373/files/musdb18hq.zip"
     SAMPLE_RATE = 44100
     ORIGINAL_DIR_NAME = "original"
-    PREPROCESSED_DIR_NAME = "preprocessed"
+    PREPROCESSED_DIR_NAME = "preprocessed_hpss"
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(
             self,
             root_dir="~/musdb_contrastive",
-            download="false",
-            preprocess="false",
+            download=True,
+            preprocess=True,
             split="train",
             chunk_duration=5,
-            positive_noise=0.001,
             target_sample_rate=16000,
             generate_submixtures=True,
             device="cpu",
-            transform=None) -> None:
+            preprocess_transform=None,
+            runtime_transform=None) -> None:
 
-        self.root_dir = Path(root_dir)
+        self.root_dir = Path(root_dir) if isinstance(
+            root_dir, str) else root_dir
         self.download = download
         self.preprocess = preprocess
         self.split = split
         self.chunk_duration = chunk_duration
-        self.positive_noise = positive_noise
         self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
-        self.transform = transform
+        self.preprocess_transform = preprocess_transform
+        self.runtime_transform = runtime_transform
+
+        self.preprocessing_info = {
+            "chunk_duration": self.chunk_duration,
+            "target_sample_rate": self.target_sample_rate,
+            "generate_submixtures": self.generate_submixtures,
+            "preprocess_transform": self.preprocess_transform.to_dict() if hasattr(self.preprocess_transform, "to_dict") else str(self.preprocess_transform)
+        }
 
         if self.split not in ["train", "test"]:
             raise ValueError(
@@ -99,28 +104,38 @@ class MusdbContrastivePreprocessed(Dataset):
 
         with open(preprocessed_dir / self.PREPROCESSING_INFO_FILE_NAME, "r") as preprocessing_info_file:
             preprocessing_info = json.load(preprocessing_info_file)
-            if preprocessing_info["chunk_duration"] != self.chunk_duration or \
-               preprocessing_info["target_sample_rate"] != self.target_sample_rate or \
-               preprocessing_info["generate_submixtures"] != self.generate_submixtures:
-                logging.info(
-                    "Found preprocessed dataset with different preprocessing parameters. Overwriting with new preprocessed dataset.")
-                shutil.rmtree(preprocessed_dir)
+            conflicting_params = self._check_preprocessing_params(
+                preprocessing_info)
+            if conflicting_params:
+                logging.error(
+                    f"Found preprocessed dataset split {self.split} with conflicting preprocessing parameters "
+                    f"at {(self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()}.\n"
+                    f"To resolve this issue, please verify the preprocessing parameters or "
+                    f"either manually delete or move the existing preprocessed dataset to another location.\n"
+                    f"Conflicts:\n\t"
+                    + '\n\t'.join(conflicting_params)
+                )
+                raise RuntimeError("Conflict in preprocessing parameters.")
 
         return preprocessed_dir.exists() and any(preprocessed_dir.iterdir())
+
+    def _check_preprocessing_params(self, preprocessing_info: dict) -> list:
+        conflicting_params = []
+        for param_name, expected_value in self.preprocessing_info.items():
+            actual_value = preprocessing_info.get(param_name)
+
+            if actual_value != expected_value:
+                conflicting_params.append(
+                    f"{param_name}: {actual_value} (expected: {expected_value})")
+        return conflicting_params
 
     def _preprocess_and_save(self) -> bool:
         preprocessed_dir = (
             self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()
         preprocessed_dir.mkdir(parents=True)
 
-        preprocessing_info = {
-            "chunk_duration": self.chunk_duration,
-            "target_sample_rate": self.target_sample_rate,
-            "generate_submixtures": self.generate_submixtures
-        }
-
         with open(preprocessed_dir / self.PREPROCESSING_INFO_FILE_NAME, "w") as preprocessing_info_file:
-            json.dump(preprocessing_info, preprocessing_info_file)
+            json.dump(self.preprocessing_info, preprocessing_info_file)
 
         original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME /
                         self.split).expanduser()
@@ -135,7 +150,7 @@ class MusdbContrastivePreprocessed(Dataset):
             for _ in range(2):
                 stems = [torch.split(
                     self.resample_transform(mix_down(
-                        torchaudio.load(stem_path, frame_offset=frame_offset)[0].to(self.device))),
+                        torchaudio.load(str(stem_path), frame_offset=frame_offset)[0].to(self.device))),
                     split_size_or_sections=chunk_num_frames,
                     dim=1)
                     for stem_path in stems_paths]
@@ -161,13 +176,17 @@ class MusdbContrastivePreprocessed(Dataset):
                     example_path = preprocessed_dir / example_id
                     example_path.mkdir()
 
-                    anchor_waveform = mix_stems(
+                    anchor = mix_stems(
                         [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in anchor_mix_idxs])
-                    positive_waveform = mix_stems(
+                    positive = mix_stems(
                         [right_pad(stems[j][i], self.chunk_duration * self.target_sample_rate) for j in positive_mix_idxs])
 
-                    torch.save(anchor_waveform, example_path / "anchor.pt")
-                    torch.save(positive_waveform, example_path / "positive.pt")
+                    if self.preprocess_transform:
+                        anchor = self.preprocess_transform(anchor)
+                        positive = self.preprocess_transform(positive)
+
+                    torch.save(anchor, example_path / "anchor.pt")
+                    torch.save(positive, example_path / "positive.pt")
                 frame_offset += chunk_num_frames // 2
 
     def _load_file_paths(self) -> None:
@@ -188,74 +207,9 @@ class MusdbContrastivePreprocessed(Dataset):
         anchor, positive = torch.load(anchor_path, map_location="cpu"), torch.load(
             positive_path, map_location="cpu")
 
-        noise_tensor = (self.positive_noise * torch.randn(
-            1, self.target_sample_rate * self.chunk_duration))
+        item = {"anchor": anchor, "positive": positive}
 
-        positive = positive + noise_tensor
+        if self.runtime_transform:
+            item = self.runtime_transform(item)
 
-        if self.transform:
-            anchor = self.transform(anchor)
-            positive = self.transform(positive)
-
-        return {"anchor": anchor, "positive": positive}
-
-
-def get_dataset(
-        split: str,
-        chunk_duration: int,
-        positive_noise: float,
-        generate_submixtures: bool,
-        transform=None) -> MusdbContrastivePreprocessed:
-    """
-    Provides a dataset for the MusdbContrastive Dataset.
-    """
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    dataset = MusdbContrastivePreprocessed(
-        download=True,
-        preprocess=True,
-        split=split,
-        chunk_duration=chunk_duration,
-        positive_noise=positive_noise,
-        target_sample_rate=16000,
-        generate_submixtures=generate_submixtures,
-        transform=transform,
-        device=device)
-
-    return dataset
-
-
-if __name__ == "__main__":
-    transform = torch.nn.Sequential(
-        T.MelSpectrogram(
-            sample_rate=16000,
-            n_fft=1024,
-            win_length=400,
-            hop_length=160,
-            f_min=60.0,
-            f_max=7800.0,
-            n_mels=64,
-        ),
-        T.AmplitudeToDB()
-    )
-    dataset = get_dataset(split="train", chunk_duration=5,
-                          positive_noise=0.001, generate_submixtures=True, transform=transform)
-
-    train_dataset, valid_dataset = random_split(
-        dataset=dataset, lengths=[0.9, 0.1])
-
-    train_dataloader = DataLoader(
-        train_dataset,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-        num_workers=os.cpu_count(),
-        persistent_workers=True)
-
-    valid_dataloader = DataLoader(
-        valid_dataset,
-        batch_size=32,
-        shuffle=True,
-        drop_last=True,
-        num_workers=os.cpu_count(),
-        persistent_workers=True)
+        return item

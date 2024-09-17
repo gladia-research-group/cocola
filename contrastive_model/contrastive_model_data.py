@@ -3,35 +3,51 @@ Lightning DataModules.
 """
 
 import os
+from pathlib import Path
 
 import lightning as L
-from torch.utils.data import DataLoader, ConcatDataset, random_split
+from torch.utils.data import DataLoader, ConcatDataset
 import torch
+import librosa
+import numpy as np
 
 from contrastive_model import constants
-from data import (
-    coco_chorales_contrastive_preprocessed,
-    moisesdb_contrastive_preprocessed,
-    slakh2100_contrastive_preprocessed
-)
+from feature_extraction.feature_extraction import CoColaFeatureExtractor
+from data.coco_chorales_contrastive_preprocessed import CocoChoralesContrastivePreprocessed
+from data.moisesdb_contrastive_preprocessed import MoisesdbContrastivePreprocessed
+from data.slakh2100_contrastive_preprocessed import Slakh2100ContrastivePreprocessed
 
 
 class CoColaDataModule(L.LightningDataModule):
     def __init__(self,
+                 root_dir: str = "~",
                  dataset: constants.Dataset = constants.Dataset.CCS,
                  batch_size: int = 32,
                  chunk_duration: int = 5,
-                 positive_noise: float = 0.001,
-                 generate_submixtures: bool = True):
+                 target_sample_rate: int = 16000,
+                 generate_submixtures: bool = True,
+                 feature_extractor_type: constants.ModelFeatureExtractorType = constants.ModelFeatureExtractorType.HPSS,
+                 feature_extraction_time: constants.FeatureExtractionTime = constants.FeatureExtractionTime.OFFLINE):
         super().__init__()
         self.save_hyperparameters()
-
+        
+        self.root_dir = Path(root_dir)
         self.dataset = dataset
         self.batch_size = batch_size
         self.chunk_duration = chunk_duration
-        self.positive_noise = positive_noise
+        self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
-        self.transform = None
+        self.feature_extractor_type = feature_extractor_type
+        self.feature_extraction_time = feature_extraction_time
+
+        feature_extractor = CoColaFeatureExtractor(
+            feature_extractor_type=self.feature_extractor_type)
+        self.preprocess_transform = None
+        self.runtime_transform = None
+        if self.feature_extraction_time == constants.FeatureExtractionTime.OFFLINE:
+            self.preprocess_transform = feature_extractor
+        elif self.feature_extraction_time == constants.FeatureExtractionTime.ONLINE:
+            self.runtime_transform = feature_extractor
 
     def setup(self, stage: str):
         if self.dataset in {constants.Dataset.CCS,
@@ -40,87 +56,171 @@ class CoColaDataModule(L.LightningDataModule):
                             constants.Dataset.CCS_BRASS,
                             constants.Dataset.CCS_WOODWIND}:
             ensemble = self.dataset.value.split("/")[1]
-            self.sample_rate = coco_chorales_contrastive_preprocessed.CocoChoralesContrastivePreprocessed.SAMPLE_RATE
-            self.train_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="train", ensemble=ensemble,
-                                                                                    chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
-                                                                                    generate_submixtures=self.generate_submixtures, transform=self.transform)
-            self.val_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="valid", ensemble=ensemble,
-                                                                                  chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
-                                                                                  generate_submixtures=self.generate_submixtures, transform=self.transform)
-            self.test_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="test", ensemble=ensemble,
-                                                                                   chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
-                                                                                   generate_submixtures=self.generate_submixtures, transform=self.transform)
-
-            assert self.train_dataset.target_sample_rate == self.val_dataset.target_sample_rate == self.test_dataset.target_sample_rate
-            self.sample_rate = self.train_dataset.target_sample_rate
+            self.train_dataset, self.val_dataset, self.test_dataset = self._get_cocochorales_splits(
+                ensemble=ensemble, stage=stage)
 
         elif self.dataset == constants.Dataset.SLAKH2100:
-            self.train_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="train", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise, generate_submixtures=self.generate_submixtures, transform=self.transform)
-            self.val_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="validation", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise, generate_submixtures=self.generate_submixtures, transform=self.transform)
-            self.test_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="test", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise, generate_submixtures=self.generate_submixtures, transform=self.transform)
-
-            assert self.train_dataset.target_sample_rate == self.val_dataset.target_sample_rate == self.test_dataset.target_sample_rate
-            self.sample_rate = self.train_dataset.target_sample_rate
+            self.train_dataset, self.val_dataset, self.test_dataset = self._get_slakh2100_splits(
+                stage)
 
         elif self.dataset == constants.Dataset.MOISESDB:
-            dataset = moisesdb_contrastive_preprocessed.get_dataset(chunk_duration=self.chunk_duration,
-                                                                    positive_noise=self.positive_noise,
-                                                                    generate_submixtures=self.generate_submixtures,
-                                                                    transform=self.transform)
-
-            self.train_dataset, self.val_dataset, self.test_dataset = random_split(
-                dataset=dataset, lengths=[0.8, 0.1, 0.1], generator=torch.Generator().manual_seed(42))
-
-            self.sample_rate = dataset.target_sample_rate
+            self.train_dataset, self.val_dataset, self.test_dataset = self._get_moisesdb_splits(
+                stage)
 
         elif self.dataset == constants.Dataset.MIXED:
-            coco_train_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="train", ensemble="random",
-                                                                                    chunk_duration=self.chunk_duration,
-                                                                                    positive_noise=self.positive_noise,
-                                                                                    generate_submixtures=self.generate_submixtures,
-                                                                                    transform=self.transform)
-            coco_val_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="valid", ensemble="random",
-                                                                                  chunk_duration=self.chunk_duration,
-                                                                                  positive_noise=self.positive_noise,
-                                                                                  generate_submixtures=self.generate_submixtures,
-                                                                                  transform=self.transform)
-            coco_test_dataset = coco_chorales_contrastive_preprocessed.get_dataset(split="test", ensemble="random",
-                                                                                   chunk_duration=self.chunk_duration,
-                                                                                   positive_noise=self.positive_noise,
-                                                                                   generate_submixtures=self.generate_submixtures,
-                                                                                   transform=self.transform)
+            self.train_dataset, self.val_dataset, self.test_dataset = self._get_mixed_splits(
+                stage)
 
-            moisesdb_dataset = moisesdb_contrastive_preprocessed.get_dataset(chunk_duration=self.chunk_duration,
-                                                                             positive_noise=self.positive_noise,
-                                                                             generate_submixtures=self.generate_submixtures,
-                                                                             transform=self.transform)
-            moisesdb_train_dataset, moisesdb_val_dataset, moisesdb_test_dataset = random_split(
-                dataset=moisesdb_dataset, lengths=[0.8, 0.1, 0.1], generator=torch.Generator().manual_seed(42))
+    def _get_mixed_splits(self, stage: str):
+        coco_train_dataset, coco_val_dataset, coco_test_dataset = self._get_cocochorales_splits(
+            "random", stage=stage)
+        moisesdb_train_dataset, moisesdb_val_dataset, moisesdb_test_dataset = self._get_moisesdb_splits(
+            stage)
+        slakh_train_dataset, slakh_val_dataset, slakh_test_dataset = self._get_slakh2100_splits(
+            stage)
 
-            slakh_train_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="train", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
-                generate_submixtures=self.generate_submixtures, transform=self.transform)
-            slakh_val_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="validation", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
-                generate_submixtures=self.generate_submixtures, transform=self.transform)
-            slakh_test_dataset = slakh2100_contrastive_preprocessed.get_dataset(
-                split="test", chunk_duration=self.chunk_duration, positive_noise=self.positive_noise,
-                generate_submixtures=self.generate_submixtures, transform=self.transform)
-
-            assert coco_train_dataset.target_sample_rate == coco_val_dataset.target_sample_rate == coco_test_dataset.target_sample_rate ==\
-                moisesdb_dataset.target_sample_rate == \
-                slakh_train_dataset.target_sample_rate == slakh_val_dataset.target_sample_rate == slakh_test_dataset.target_sample_rate
-            self.sample_rate = coco_train_dataset.target_sample_rate
-
-            self.train_dataset = ConcatDataset(
+        train_dataset, val_dataset, test_dataset = None, None, None
+        if stage == 'fit':
+            train_dataset = ConcatDataset(
                 [coco_train_dataset, moisesdb_train_dataset, slakh_train_dataset])
-            self.val_dataset = ConcatDataset(
+            val_dataset = ConcatDataset(
                 [coco_val_dataset, moisesdb_val_dataset, slakh_val_dataset])
-            self.test_dataset = ConcatDataset(
+        elif stage == 'test':
+            test_dataset = ConcatDataset(
                 [coco_test_dataset, moisesdb_test_dataset, slakh_test_dataset])
+
+        return train_dataset, val_dataset, test_dataset
+
+    def _get_cocochorales_splits(self, ensemble: str, stage: str):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        root_dir = self.root_dir / "coco_chorales_contrastive"
+        train_dataset, val_dataset, test_dataset = None, None, None
+
+        if stage == "fit":
+            train_dataset = CocoChoralesContrastivePreprocessed(
+                root_dir=root_dir,
+                download=True,
+                preprocess=True,
+                split="train",
+                ensemble=ensemble,
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+
+            val_dataset = CocoChoralesContrastivePreprocessed(
+                root_dir=root_dir,
+                download=True,
+                preprocess=True,
+                split="valid",
+                ensemble=ensemble,
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+        elif stage == "test":
+            test_dataset = CocoChoralesContrastivePreprocessed(
+                root_dir=root_dir,
+                download=True,
+                preprocess=True,
+                split="test",
+                ensemble=ensemble,
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+
+        return train_dataset, val_dataset, test_dataset
+
+    def _get_slakh2100_splits(self, stage: str):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        root_dir = self.root_dir / "slakh2100_contrastive"
+        train_dataset, val_dataset, test_dataset = None, None, None
+
+        if stage == "fit":
+            train_dataset = Slakh2100ContrastivePreprocessed(
+                root_dir=root_dir,
+                download=True,
+                preprocess=True,
+                split="train",
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+            val_dataset = Slakh2100ContrastivePreprocessed(
+                root_dir=root_dir,
+                download=True,
+                preprocess=True,
+                split="validation",
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+        elif stage == "test":
+            test_dataset = Slakh2100ContrastivePreprocessed(
+                root_dir=root_dir,
+                download=True,
+                preprocess=True,
+                split="test",
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+
+        return train_dataset, val_dataset, test_dataset
+
+    def _get_moisesdb_splits(self, stage: str):
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        root_dir = self.root_dir / "moisesdb_contrastive"
+        train_dataset, val_dataset, test_dataset = None, None, None
+
+        if stage == "fit":
+            train_dataset = MoisesdbContrastivePreprocessed(
+                root_dir=root_dir,
+                split="train",
+                preprocess=True,
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+
+            val_dataset = MoisesdbContrastivePreprocessed(
+                root_dir=root_dir,
+                split="valid",
+                preprocess=True,
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+        elif stage == "test":
+            test_dataset = MoisesdbContrastivePreprocessed(
+                root_dir=root_dir,
+                split="test",
+                preprocess=True,
+                chunk_duration=self.chunk_duration,
+                target_sample_rate=self.target_sample_rate,
+                generate_submixtures=self.generate_submixtures,
+                device=device,
+                preprocess_transform=self.preprocess_transform,
+                runtime_transform=self.runtime_transform)
+
+        return train_dataset, val_dataset, test_dataset
 
     def train_dataloader(self):
         return DataLoader(

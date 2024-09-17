@@ -9,13 +9,14 @@ trainer:
   logger:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
-      project: cocola
+      project: cocola_hpss
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
-          monitor: valid_loss
-          save_top_k: 20
-          mode: min
+        monitor: valid_loss
+        save_top_k: 5
+        mode: min
+        filename: checkpoint-{epoch}-{val_loss:.4f}
   fast_dev_run: false
   max_epochs: 500
   min_epochs: null
@@ -51,12 +52,16 @@ trainer:
 model:
   learning_rate: 0.001
   embedding_dim: 512
-  embedding_model: EFFICIENTNET
+  embedding_mode: RANDOM
+  input_type: DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
   dropout_p: 0.1
 data:
-  dataset: CCS
+  root_dir: ~/
+  dataset: MIXED
   batch_size: 32
   chunk_duration: 5
-  positive_noise: 0.001
+  target_sample_rate: 16000
   generate_submixtures: true
+  feature_extractor_type: MEL_SPECTROGRAM
+  feature_extraction_time: ONLINE
 ckpt_path: null
