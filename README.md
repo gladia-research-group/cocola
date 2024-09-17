@@ -46,7 +46,9 @@ python main.py fit --config configs/train_all_submixtures.yaml
 ```
 
 ## Pretrained Models
-TODO
+| Model Checkpoint | Train Dataset | Train Config | Description |
+|-------|---------|-------------|---------|
+| TODO  | TODO    | TODO        | TODO    |
 
 ### Example 1: calculating COCOLA cross-scores matrix on a batch of pairs.
 ```python
