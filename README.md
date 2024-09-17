@@ -2,6 +2,8 @@
 ## Introduction
 This is the official repository [COCOLA: Coherence-Oriented Contrastive Learning of Musical Audio Representations](https://arxiv.org/abs/2404.16969).
 
+COCOLA is a contrastive model which is able to estimate the harmonic and rythmic coherence between pairs of music audio examples.
+
 ![alt text](res/logo.jpg)
 
 
@@ -46,33 +48,77 @@ python main.py fit --config configs/train_all_submixtures.yaml
 ```
 
 ## Pretrained Models
-| Model Checkpoint | Train Dataset | Train Config | Description |
-|-------|---------|-------------|---------|
-| https://drive.google.com/file/d/1HdKgDV2wCdGwCWPlIIRm2ytlbUNah8fo/view?usp=sharing  | Moisesdb, Slakh2100, CocoChorales| batch size = 32, chunk duration = 5s, embedding mode = EmbeddingMode.RANDOM, input type = ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE | TODO    |
+Model Name | Model Checkpoint | Train Dataset | Train Config File | Description |
+|-------|-------|---------|-------------|---------|
+COCOLA_HP_v1| https://drive.google.com/file/d/1HdKgDV2wCdGwCWPlIIRm2ytlbUNah8fo/view?usp=sharing  | Moisesdb, Slakh2100, CocoChorales| `configs/train_all_submixtures_hpss.yaml`| Allows to compute COCOLA Score, COCOLA Harmonic Score and COCOLA Percussive Score.|
 
-### Example 1: calculating COCOLA Scores on a batch of pairs of music audio.
+### Example 1: calculating COCOLA (Harmonic/Percussive) Scores with COCOLA_HP_v1 on a of pair of music audio examples.
 ```python
+from contrastive_model import constants
 from contrastive_model.contrastive_model import CoCola
+from feature_extraction.feature_extraction import CoColaFeatureExtractor
 
 model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
+feature_extractor = CocolaFeatureExtractor()
 
 model.eval()
 
+# Set to:
+# - constants.EmbeddingMode.BOTH for standard COCOLA Score
+# - constants.EmbeddingMode.HARMONIC for COCOLA Harmonic Score
+# - constants.EmbeddingMode.PERCUSSIVE for COCOLA Percussive Score
+model.set_embedding_mode(constants.EmbeddingMode.BOTH)
+
+features_x = feature_extractor(x)
+features_y = feature_extractor(y)
+score = model.score(features_x, features_y)
+```
+where `x` and `y` are tensors of shape `[1, 16000*5]` (audio tracks of 5 seconds sampled at 16000 kHz).
+
+### Example 2: calculating COCOLA (Harmonic/Percussive) Scores with COCOLA_HP_v1 on a batch of pairs of music audio examples.
+```python
+from contrastive_model import constants
+from contrastive_model.contrastive_model import CoCola
+from feature_extraction.feature_extraction import CoColaFeatureExtractor
+
+model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
+feature_extractor = CocolaFeatureExtractor()
+
+model.eval()
+
+# Set to:
+# - constants.EmbeddingMode.BOTH for standard COCOLA Score
+# - constants.EmbeddingMode.HARMONIC for COCOLA Harmonic Score
+# - constants.EmbeddingMode.PERCUSSIVE for COCOLA Percussive Score
+model.set_embedding_mode(constants.EmbeddingMode.BOTH)
+
+features_x = feature_extractor(x)
+features_y = feature_extractor(y)
 scores = model.score(x, y)
 ```
 where `x` and `y` are tensors of shape `[B, 1, 16000*5]` (`B` audio tracks of 5 seconds sampled at 16000 kHz).
 
 `scores[i]` contains the COCOLA score between `x[i]` and `y[i]`.
 
-### Example 2: calculating COCOLA cross-scores matrix on a batch of pairs of music audio.
+### Example 3: calculating COCOLA (Harmonic/Percussive) cross-scores matrix with COCOLA_HP_v1 on a batch of pairs of music audio examples.
 ```python
+from contrastive_model import constants
 from contrastive_model.contrastive_model import CoCola
+from feature_extraction.feature_extraction import CoColaFeatureExtractor
 
 model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
+feature_extractor = CocolaFeatureExtractor()
 
 model.eval()
 
-scores = model(x)
+# Set to:
+# - constants.EmbeddingMode.BOTH for standard COCOLA Score
+# - constants.EmbeddingMode.HARMONIC for COCOLA Harmonic Score
+# - constants.EmbeddingMode.PERCUSSIVE for COCOLA Percussive Score
+model.set_embedding_mode(constants.EmbeddingMode.BOTH)
+
+features = feature_extractor(x)
+scores = model(features)
 ```
 where `x` is like:
 ```python
