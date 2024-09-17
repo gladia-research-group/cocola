@@ -40,7 +40,7 @@ You can pass a YAML config file as command line argument instead of specifying e
 ```
 python main.py fit --config path/to/config.yaml
 ```
-See `configs` for examples of cofig files.
+See `configs` for examples of config files.
 
 ### Example: Training a contrastive model on CocoChorales + MoisesDB + Slakh2100
 ```
