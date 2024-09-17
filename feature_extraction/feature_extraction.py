@@ -30,28 +30,48 @@ class HPSS(nn.Module):
         self.n_mels = n_mels
 
     def forward(self, x: torch.Tensor):
-        x = x.squeeze(0).cpu().numpy()
-        stft_x = librosa.stft(x,
-                              n_fft=self.n_fft,
-                              win_length=self.win_length,
-                              hop_length=self.hop_length)
-        harmonic_stft_x, percussive_stft_x = librosa.decompose.hpss(stft_x)
-        mel_harmonic_x = librosa.feature.melspectrogram(S=np.abs(harmonic_stft_x)**2,
-                                                        sr=self.sample_rate,
-                                                        fmin=self.fmin,
-                                                        fmax=self.fmax,
-                                                        n_mels=self.n_mels)
-        mel_percussive_x = librosa.feature.melspectrogram(S=np.abs(percussive_stft_x)**2,
-                                                          sr=self.sample_rate,
-                                                          fmin=self.fmin,
-                                                          fmax=self.fmax,
-                                                          n_mels=self.n_mels)
-        mel_db_harmonic_x = librosa.power_to_db(mel_harmonic_x, ref=np.max)
-        mel_db_percussive_x = librosa.power_to_db(mel_percussive_x, ref=np.max)
-        processed_x = np.stack(
-            (mel_db_harmonic_x, mel_db_percussive_x), axis=0)
-        processed_x = torch.from_numpy(processed_x)
-        return processed_x
+        """Extract HPSS feature tensor(s) from input audio tensor(s).
+
+        Args:
+            x (torch.Tensor): The audio tensor(s) of shape (B, 1, S) or (1, S).
+
+        Returns:
+            torch.Tensor: The HPSS features tensor(s) of shape (B, 2, H, W) or (2, H, W).
+        """
+        if len(x.shape) == 2:
+            x = x.unsqueeze(0)
+
+        batch_size = x.shape[0]
+        features = []
+        for i in range(batch_size):
+            audio = x[i].squeeze(0).cpu().numpy()
+            stft = librosa.stft(audio,
+                                n_fft=self.n_fft,
+                                win_length=self.win_length,
+                                hop_length=self.hop_length)
+            harmonic_stft, percussive_stft = librosa.decompose.hpss(stft)
+            mel_harmonic = librosa.feature.melspectrogram(S=np.abs(harmonic_stft)**2,
+                                                            sr=self.sample_rate,
+                                                            fmin=self.fmin,
+                                                            fmax=self.fmax,
+                                                            n_mels=self.n_mels)
+            mel_percussive = librosa.feature.melspectrogram(S=np.abs(percussive_stft)**2,
+                                                            sr=self.sample_rate,
+                                                            fmin=self.fmin,
+                                                            fmax=self.fmax,
+                                                            n_mels=self.n_mels)
+            mel_db_harmonic = librosa.power_to_db(mel_harmonic, ref=np.max)
+            mel_db_percussive = librosa.power_to_db(mel_percussive, ref=np.max)
+            hp_mel_db = np.stack(
+                (mel_db_harmonic, mel_db_percussive), axis=0)
+            hp_mel_db = torch.from_numpy(hp_mel_db)
+            features.append(hp_mel_db)
+
+        features = torch.stack(features, dim=0)
+        if batch_size == 1:
+            features = features.squeeze(0)
+
+        return features
 
 
 class CoColaFeatureExtractor(nn.Module):
