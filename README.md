@@ -50,7 +50,21 @@ python main.py fit --config configs/train_all_submixtures.yaml
 |-------|---------|-------------|---------|
 | TODO  | TODO    | TODO        | TODO    |
 
-### Example 1: calculating COCOLA cross-scores matrix on a batch of pairs.
+### Example 1: calculating COCOLA Scores on a batch of pairs of music audio.
+```python
+from contrastive_model.contrastive_model import CoCola
+
+model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
+
+model.eval()
+
+scores = model.score(x, y)
+```
+where `x` and `y` are tensors of shape `[B, 1, 16000*5]` (`B` audio tracks of 5 seconds sampled at 16000 kHz).
+
+`scores[i]` contains the COCOLA score between `x[i]` and `y[i]`.
+
+### Example 2: calculating COCOLA cross-scores matrix on a batch of pairs of music audio.
 ```python
 from contrastive_model.contrastive_model import CoCola
 
@@ -67,20 +81,7 @@ x = {
     "positive": torch.randn(batch_size, 1, 16000*5, dtype=torch.float32) # 5 seconds, 16000 kHz
 }
 ```
-If `batch_size` is 1, `model(x)` returns the COCOLA Score between `x["anchor"]` and `x["positive"]`.
-
-### Example 2: calculating COCOLA Scores on a batch of pairs.
-```python
-from contrastive_model.contrastive_model import CoCola
-
-model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
-
-model.eval()
-
-scores = model.score(x, y)
-```
-where `x` and `y` are tensors of shape `[B, 1, 16000*5]`.
-```
+`scores[i, j]` contains the COCOLA score between `x['anchor'][i]` and `y['positive'][j]`.
 
 ## Troubleshooting
 ### CocoChorales Dataset
