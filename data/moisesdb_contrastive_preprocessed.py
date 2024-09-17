@@ -26,7 +26,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
     VERSION = "1.0.0"
     SAMPLE_RATE = 44100
     ORIGINAL_DIR_NAME = "moisesdb_v0.1"
-    PREPROCESSED_DIR_NAME = "preprocessed_hpss"
+    PREPROCESSED_DIR_NAME = "preprocessed"
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(

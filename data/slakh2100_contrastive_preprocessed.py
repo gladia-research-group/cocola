@@ -27,7 +27,7 @@ class Slakh2100ContrastivePreprocessed(Dataset):
     URL = "https://zenodo.org/records/7708270/files/slakh2100_redux_16k.tar.gz"
     SAMPLE_RATE = 16000
     ORIGINAL_DIR_NAME = "original"
-    PREPROCESSED_DIR_NAME = "preprocessed_hpss"
+    PREPROCESSED_DIR_NAME = "preprocessed"
     PREPROCESSING_INFO_FILE_NAME = "preprocessing_info.json"
 
     def __init__(

@@ -9,7 +9,7 @@ trainer:
   logger:
     class_path: lightning.pytorch.loggers.WandbLogger
     init_args:
-      project: cocola_hpss
+      project: cocola
   callbacks:
     - class_path: lightning.pytorch.callbacks.ModelCheckpoint
       init_args:
