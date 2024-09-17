@@ -48,7 +48,7 @@ python main.py fit --config configs/train_all_submixtures.yaml
 ## Pretrained Models
 | Model Checkpoint | Train Dataset | Train Config | Description |
 |-------|---------|-------------|---------|
-| TODO  | TODO    | TODO        | TODO    |
+| https://drive.google.com/file/d/1HdKgDV2wCdGwCWPlIIRm2ytlbUNah8fo/view?usp=sharing  | Moisesdb, Slakh2100, CocoChorales| batch size = 32, chunk duration = 5s, embedding mode = EmbeddingMode.RANDOM, input type = ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE | TODO    |
 
 ### Example 1: calculating COCOLA Scores on a batch of pairs of music audio.
 ```python
