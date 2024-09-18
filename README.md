@@ -59,7 +59,7 @@ from contrastive_model.contrastive_model import CoCola
 from feature_extraction.feature_extraction import CoColaFeatureExtractor
 
 model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
-feature_extractor = CocolaFeatureExtractor()
+feature_extractor = CoColaFeatureExtractor()
 
 model.eval()
 
@@ -82,7 +82,7 @@ from contrastive_model.contrastive_model import CoCola
 from feature_extraction.feature_extraction import CoColaFeatureExtractor
 
 model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
-feature_extractor = CocolaFeatureExtractor()
+feature_extractor = CoColaFeatureExtractor()
 
 model.eval()
 
@@ -107,7 +107,7 @@ from contrastive_model.contrastive_model import CoCola
 from feature_extraction.feature_extraction import CoColaFeatureExtractor
 
 model = CoCola.load_from_checkpoint("/path/to/checkpoint.ckpt")
-feature_extractor = CocolaFeatureExtractor()
+feature_extractor = CoColaFeatureExtractor()
 
 model.eval()
 
