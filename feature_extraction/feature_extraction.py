@@ -17,16 +17,16 @@ class HPSS(nn.Module):
                  n_fft: int = 1024,
                  win_length: int = 400,
                  hop_length: int = 160,
-                 fmin: float = 60.0,
-                 fmax: float = 7800.0,
+                 f_min: float = 60.0,
+                 f_max: float = 7800.0,
                  n_mels: int = 64) -> None:
         super().__init__()
         self.sample_rate = sample_rate
         self.n_fft = n_fft
         self.win_length = win_length
         self.hop_length = hop_length
-        self.fmin = fmin
-        self.fmax = fmax
+        self.f_min = f_min
+        self.f_max = f_max
         self.n_mels = n_mels
 
     def forward(self, x: torch.Tensor):
@@ -52,13 +52,13 @@ class HPSS(nn.Module):
             harmonic_stft, percussive_stft = librosa.decompose.hpss(stft)
             mel_harmonic = librosa.feature.melspectrogram(S=np.abs(harmonic_stft)**2,
                                                             sr=self.sample_rate,
-                                                            fmin=self.fmin,
-                                                            fmax=self.fmax,
+                                                            fmin=self.f_min,
+                                                            fmax=self.f_max,
                                                             n_mels=self.n_mels)
             mel_percussive = librosa.feature.melspectrogram(S=np.abs(percussive_stft)**2,
                                                             sr=self.sample_rate,
-                                                            fmin=self.fmin,
-                                                            fmax=self.fmax,
+                                                            fmin=self.f_min,
+                                                            fmax=self.f_max,
                                                             n_mels=self.n_mels)
             mel_db_harmonic = librosa.power_to_db(mel_harmonic, ref=np.max)
             mel_db_percussive = librosa.power_to_db(mel_percussive, ref=np.max)
