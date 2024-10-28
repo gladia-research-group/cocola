@@ -86,8 +86,24 @@ class CoColaFeatureExtractor(nn.Module):
                  n_mels: int = 64) -> None:
         super().__init__()
         self.feature_extractor_type = feature_extractor_type
+        self.sample_rate = sample_rate
+        self.n_fft = n_fft
+        self.win_length = win_length
+        self.hop_length = hop_length
+        self.f_min = f_min
+        self.f_max = f_max
+        self.n_mels = n_mels
+
         if self.feature_extractor_type == constants.ModelFeatureExtractorType.HPSS:
-            self.feature_extractor = HPSS()
+            self.feature_extractor = HPSS(
+                sample_rate=self.sample_rate,
+                n_fft=self.n_fft,
+                win_length=self.win_length,
+                hop_length=self.hop_length,
+                f_min=self.f_min,
+                f_max=self.f_max,
+                n_mels=self.n_mels
+            )
         elif self.feature_extractor_type == constants.ModelFeatureExtractorType.MEL_SPECTROGRAM:
             self.feature_extractor = torch.nn.Sequential(
                 T.MelSpectrogram(
@@ -101,13 +117,6 @@ class CoColaFeatureExtractor(nn.Module):
                 ),
                 T.AmplitudeToDB()
             )
-        self.sample_rate = sample_rate
-        self.n_fft = n_fft
-        self.win_length = win_length
-        self.hop_length = hop_length
-        self.f_min = f_min
-        self.f_max = f_max
-        self.n_mels = n_mels
 
     def forward(self, x: Union[dict, torch.Tensor]):
         """Performs feature extraction.
