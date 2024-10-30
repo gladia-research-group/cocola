@@ -52,8 +52,8 @@ trainer:
 model:
   learning_rate: 0.001
   embedding_dim: 512
-  embedding_mode: RANDOM
-  input_type: DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
+  embedding_mode: null
+  input_type: SINGLE_CHANNEL_MEL_SPECTROGRAM
   dropout_p: 0.1
 data:
   root_dir: ~/
