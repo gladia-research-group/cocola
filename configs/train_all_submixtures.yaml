@@ -56,7 +56,7 @@ model:
   input_type: SINGLE_CHANNEL_MEL_SPECTROGRAM
   dropout_p: 0.1
 data:
-  root_dir: ~/
+  root_dir: /disk1/demancum
   dataset: MIXED
   batch_size: 32
   chunk_duration: 5
