@@ -1,0 +1,67 @@
+# lightning.pytorch==2.2.1
+seed_everything: true
+trainer:
+  accelerator: auto
+  strategy: auto
+  devices: auto
+  num_nodes: 1
+  precision: null
+  logger:
+    class_path: lightning.pytorch.loggers.WandbLogger
+    init_args:
+      project: cocola
+  callbacks:
+    - class_path: lightning.pytorch.callbacks.ModelCheckpoint
+      init_args:
+        monitor: valid_loss
+        save_top_k: 5
+        mode: min
+        filename: checkpoint-{epoch}-{val_loss:.4f}
+  fast_dev_run: false
+  max_epochs: 500
+  min_epochs: null
+  max_steps: -1
+  min_steps: null
+  max_time: null
+  limit_train_batches: null
+  limit_val_batches: null
+  limit_test_batches: null
+  limit_predict_batches: null
+  overfit_batches: 0.0
+  val_check_interval: null
+  check_val_every_n_epoch: 1
+  num_sanity_val_steps: null
+  log_every_n_steps: null
+  enable_checkpointing: null
+  enable_progress_bar: null
+  enable_model_summary: null
+  accumulate_grad_batches: 1
+  gradient_clip_val: null
+  gradient_clip_algorithm: null
+  deterministic: null
+  benchmark: null
+  inference_mode: true
+  use_distributed_sampler: true
+  profiler: null
+  detect_anomaly: false
+  barebones: false
+  plugins: null
+  sync_batchnorm: false
+  reload_dataloaders_every_n_epochs: 0
+  default_root_dir: null
+model:
+  learning_rate: 0.001
+  embedding_dim: 512
+  embedding_mode: RANDOM
+  input_type: #DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
+  dropout_p: 0.1
+data:
+  root_dir: /disk1/demancum
+  dataset: SLAKH2100
+  batch_size: 32
+  chunk_duration: 5
+  target_sample_rate: 16000
+  generate_submixtures: true
+  feature_extractor_type: MEL_SPECTROGRAM
+  feature_extraction_time: ONLINE
+ckpt_path: null
