@@ -7,6 +7,7 @@ import torch
 import torchaudio.transforms as T
 from torch import nn
 import librosa
+import time
 
 from contrastive_model import constants
 
@@ -15,7 +16,7 @@ class HPSS(nn.Module):
     def __init__(self,
                  sample_rate: int = 16000,
                  n_fft: int = 1024,
-                 win_length: int = 400,
+                 win_length: int = 1024,
                  hop_length: int = 160,
                  f_min: float = 60.0,
                  f_max: float = 7800.0,
@@ -45,27 +46,51 @@ class HPSS(nn.Module):
         features = []
         for i in range(batch_size):
             audio = x[i].squeeze(0).cpu().numpy()
+
             stft = librosa.stft(audio,
                                 n_fft=self.n_fft,
                                 win_length=self.win_length,
                                 hop_length=self.hop_length)
+
+            #stft = torch.stft(
+            #    audio,
+            #    n_fft=self.n_fft,
+            #    hop_length=self.hop_length,
+            #    window=torch.hann_window(self.win_length).to(x.device),
+            #    return_complex=True
+            #)
+
+            #stft = stft.cpu().numpy()
+
             harmonic_stft, percussive_stft = librosa.decompose.hpss(stft)
+
+
             mel_harmonic = librosa.feature.melspectrogram(S=np.abs(harmonic_stft)**2,
                                                             sr=self.sample_rate,
                                                             fmin=self.f_min,
                                                             fmax=self.f_max,
                                                             n_mels=self.n_mels)
+
+
             mel_percussive = librosa.feature.melspectrogram(S=np.abs(percussive_stft)**2,
                                                             sr=self.sample_rate,
                                                             fmin=self.f_min,
                                                             fmax=self.f_max,
                                                             n_mels=self.n_mels)
+
             mel_db_harmonic = librosa.power_to_db(mel_harmonic, ref=np.max)
+
             mel_db_percussive = librosa.power_to_db(mel_percussive, ref=np.max)
+
+
             hp_mel_db = np.stack(
                 (mel_db_harmonic, mel_db_percussive), axis=0)
+
+
+
             hp_mel_db = torch.from_numpy(hp_mel_db)
             features.append(hp_mel_db)
+
 
         features = torch.stack(features, dim=0)
         if batch_size == 1:

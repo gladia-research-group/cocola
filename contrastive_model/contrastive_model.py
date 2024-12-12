@@ -15,8 +15,11 @@ class BilinearSimilarity(nn.Module):
     def __init__(self, dim) -> None:
         super().__init__()
         self.dim = dim
-        self.w = nn.Parameter(data=torch.Tensor(self.dim, self.dim))
-        self.w.data.normal_(0, 0.05)
+        #self.w = nn.Parameter(data=torch.Tensor(self.dim, self.dim))
+        #self.w.data.normal_(0, 0.05)
+
+        # Initialize S as a learnable parameter of size (dim, dim)
+        self.S = nn.Parameter(torch.randn(self.dim, self.dim) * 0.05)
 
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """Computes the matrix of similarities between the elements of x and y.
@@ -28,8 +31,14 @@ class BilinearSimilarity(nn.Module):
         Returns:
             torch.Tensor: the matrix of similarities of shape (B, B).
         """
-        projection_y = torch.matmul(self.w, y.t())
+        #projection_y = torch.matmul(self.w, y.t())
+        #similarities = torch.matmul(x, projection_y)
+        
+        # Compute W as S S^T
+        W = torch.matmul(self.S, self.S.t())
+        projection_y = torch.matmul(W, y.t())
         similarities = torch.matmul(x, projection_y)
+        
         return similarities
 
     def pairwise(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
@@ -42,8 +51,14 @@ class BilinearSimilarity(nn.Module):
         Returns:
             torch.Tensor: the vector of similarities of shape (B).
         """
-        projection_y = torch.matmul(self.w, y.t())
+        #projection_y = torch.matmul(self.w, y.t())
+        #similarities = (x * projection_y.t()).sum(dim=-1)
+        
+        # Compute W as S S^T
+        W = torch.matmul(self.S, self.S.t())
+        projection_y = torch.matmul(W, y.t())
         similarities = (x * projection_y.t()).sum(dim=-1)
+        
         return similarities
 
 

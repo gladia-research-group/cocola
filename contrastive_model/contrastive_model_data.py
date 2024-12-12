@@ -11,9 +11,13 @@ import torch
 
 from contrastive_model import constants
 from feature_extraction.feature_extraction import CoColaFeatureExtractor
-from data.coco_chorales_contrastive_preprocessed import CocoChoralesContrastivePreprocessed
-from data.moisesdb_contrastive_preprocessed import MoisesdbContrastivePreprocessed
-from data.slakh2100_contrastive_preprocessed import Slakh2100ContrastivePreprocessed
+#from data.coco_chorales_contrastive_preprocessed import CocoChoralesContrastivePreprocessed
+from data.coco_chorales_contrastive_online import CocoChoralesContrastivePreprocessed
+from data.moisesdb_contrastive_online import MoisesdbContrastivePreprocessed
+from data.slakh2100_contrastive_online import Slakh2100ContrastivePreprocessed
+#from data.moisesdb_contrastive_preprocessed import MoisesdbContrastivePreprocessed
+#from data.slakh2100_contrastive_preprocessed import Slakh2100ContrastivePreprocessed
+
 
 
 class CoColaDataModule(L.LightningDataModule):
@@ -98,7 +102,7 @@ class CoColaDataModule(L.LightningDataModule):
             train_dataset = CocoChoralesContrastivePreprocessed(
                 root_dir=root_dir,
                 download=True,
-                preprocess=True,
+                #preprocess=True,
                 split="train",
                 ensemble=ensemble,
                 chunk_duration=self.chunk_duration,
@@ -111,7 +115,7 @@ class CoColaDataModule(L.LightningDataModule):
             val_dataset = CocoChoralesContrastivePreprocessed(
                 root_dir=root_dir,
                 download=True,
-                preprocess=True,
+                #preprocess=True,
                 split="valid",
                 ensemble=ensemble,
                 chunk_duration=self.chunk_duration,
@@ -124,7 +128,7 @@ class CoColaDataModule(L.LightningDataModule):
             test_dataset = CocoChoralesContrastivePreprocessed(
                 root_dir=root_dir,
                 download=True,
-                preprocess=True,
+                #preprocess=True,
                 split="test",
                 ensemble=ensemble,
                 chunk_duration=self.chunk_duration,
@@ -145,7 +149,7 @@ class CoColaDataModule(L.LightningDataModule):
             train_dataset = Slakh2100ContrastivePreprocessed(
                 root_dir=root_dir,
                 download=True,
-                preprocess=True,
+                #preprocess=True,
                 split="train",
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
@@ -156,7 +160,7 @@ class CoColaDataModule(L.LightningDataModule):
             val_dataset = Slakh2100ContrastivePreprocessed(
                 root_dir=root_dir,
                 download=True,
-                preprocess=True,
+                #preprocess=True,
                 split="validation",
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
@@ -168,7 +172,7 @@ class CoColaDataModule(L.LightningDataModule):
             test_dataset = Slakh2100ContrastivePreprocessed(
                 root_dir=root_dir,
                 download=True,
-                preprocess=True,
+                #preprocess=True,
                 split="test",
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
@@ -188,7 +192,7 @@ class CoColaDataModule(L.LightningDataModule):
             train_dataset = MoisesdbContrastivePreprocessed(
                 root_dir=root_dir,
                 split="train",
-                preprocess=True,
+                #preprocess=True,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
@@ -199,7 +203,7 @@ class CoColaDataModule(L.LightningDataModule):
             val_dataset = MoisesdbContrastivePreprocessed(
                 root_dir=root_dir,
                 split="valid",
-                preprocess=True,
+                #preprocess=True,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,
@@ -210,7 +214,7 @@ class CoColaDataModule(L.LightningDataModule):
             test_dataset = MoisesdbContrastivePreprocessed(
                 root_dir=root_dir,
                 split="test",
-                preprocess=True,
+                #preprocess=True,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
                 generate_submixtures=self.generate_submixtures,

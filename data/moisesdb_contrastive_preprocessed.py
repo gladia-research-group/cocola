@@ -60,7 +60,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
 
         if self.split not in ["train", "valid", "test"]:
             raise ValueError(
-                "`split` must be one of ['train', 'valid', 'test'].")
+                "split must be one of ['train', 'valid', 'test'].")
 
         if not self._is_downloaded_and_extracted():
             raise RuntimeError(
@@ -75,7 +75,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
             self._preprocess_and_save()
         if not self._is_preprocessed():
             raise RuntimeError(
-                f"Preprocessed dataset split {self.split} not found. Please use `preprocess=True` to preprocess it.")
+                f"Preprocessed dataset split {self.split} not found. Please use preprocess=True to preprocess it.")
         logging.info(
             f"Found preprocessed dataset split {self.split} at {(self.root_dir / self.PREPROCESSED_DIR_NAME / self.split).expanduser()}.")
 
