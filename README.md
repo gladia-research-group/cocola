@@ -50,7 +50,7 @@ python main.py fit --config configs/train_all_submixtures.yaml
 ## Pretrained Models
 Model Name | Model Checkpoint | Train Dataset | Train Config File | Description |
 |-------|-------|---------|-------------|---------|
-COCOLA_HP_v1| https://drive.google.com/file/d/1HdKgDV2wCdGwCWPlIIRm2ytlbUNah8fo/view?usp=sharing  | Moisesdb, Slakh2100, CocoChorales| `configs/train_all_submixtures_hpss.yaml`| Allows to compute COCOLA Score, COCOLA Harmonic Score and COCOLA Percussive Score.|
+COCOLA_HP_v1| https://drive.google.com/file/d/1S-_OvnDwNFLNZD5BmI1Ouck_prutRVWZ/view?usp=share_link | Moisesdb, Slakh2100, CocoChorales| `configs/train_all_submixtures_hpss.yaml`| Allows to compute COCOLA Score, COCOLA Harmonic Score and COCOLA Percussive Score.|
 
 ### Example 1: calculating COCOLA (Harmonic/Percussive) Score with COCOLA_HP_v1 on a of pair of music audio examples.
 ```python
