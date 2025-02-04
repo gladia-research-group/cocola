@@ -56,8 +56,8 @@ model:
   input_type: DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE
   dropout_p: 0.1
 data:
-  root_dir: /disk1/demancum
-  dataset: MIXED
+  root_dir: /disk1/demancum/hp_datasets
+  dataset: MOISESDB
   batch_size: 32
   chunk_duration: 5
   target_sample_rate: 16000

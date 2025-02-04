@@ -57,7 +57,7 @@ model:
   dropout_p: 0.1
 data:
   root_dir: /disk1/demancum
-  dataset: MIXED
+  dataset: MOISESDB
   batch_size: 32
   chunk_duration: 5
   target_sample_rate: 16000

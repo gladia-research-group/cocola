@@ -30,7 +30,6 @@ class Slakh2100ContrastivePreprocessed(Dataset):
     def __init__(
             self,
             root_dir="~/slakh2100_contrastive",
-            download=True,
             split="train",
             chunk_duration=5,
             target_sample_rate=16000,
@@ -38,62 +37,61 @@ class Slakh2100ContrastivePreprocessed(Dataset):
             device="cpu",
             preprocess_transform=None,
             runtime_transform=None,
-            samples_per_epoch=10000) -> None:
-
+            samples_per_epoch_train=10000,
+            samples_per_epoch_val=320,
+            seed_val=42
+        ) -> None:
         self.root_dir = Path(root_dir).expanduser()
-        self.download = download
         self.split = split
         self.chunk_duration = chunk_duration
         self.target_sample_rate = target_sample_rate
         self.generate_submixtures = generate_submixtures
         self.preprocess_transform = preprocess_transform
         self.runtime_transform = runtime_transform
-        self.samples_per_epoch = samples_per_epoch
         self.device = device
+
+        self.samples_per_epoch_train = samples_per_epoch_train
+        self.samples_per_epoch_val = samples_per_epoch_val
+        self.seed_val = seed_val
 
         if self.split not in ["train", "test", "validation"]:
             raise ValueError("`split` must be one of ['train', 'test', 'validation'].")
 
-        # Scarica il dataset se non presente
-        if self.download and not self._is_downloaded_and_extracted():
-            self._download_and_extract()
-
         if not self._is_downloaded_and_extracted():
             raise RuntimeError(
-                f"Dataset split {self.split} not found. Please set `download=True` or place the data properly.")
+                f"Dataset split {self.split} not found.")
         logging.info(
             f"Found original dataset split {self.split} at {(self.root_dir / self.ORIGINAL_DIR_NAME / 'slakh2100_redux_16k' / self.split)}.")
 
         self.resample_transform = T.Resample(
             self.SAMPLE_RATE, self.target_sample_rate)
 
-        # Costruisce l'indice dei brani (track e stems)
         self._build_index()
+        
+        # Create a separate RNG for validation if needed
+        if self.split == "validation":
+            self.rng = random.Random(self.seed_val)
+        else:
+            self.rng = random
 
     def _is_downloaded_and_extracted(self) -> bool:
-        split_dir = (self.root_dir / self.ORIGINAL_DIR_NAME / "slakh2100_redux_16k" /
-                     self.split)
+        split_dir = (self.root_dir / self.ORIGINAL_DIR_NAME / "slakh2100_redux_16k" /self.split)
         return split_dir.exists() and any(split_dir.iterdir())
 
-    def _download_and_extract(self) -> None:
-        download_and_extract_archive(
-            self.URL, self.root_dir / self.ORIGINAL_DIR_NAME, remove_finished=True)
-
     def _build_index(self):
-        original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME /
-                        "slakh2100_redux_16k" / self.split)
+        original_dir = (self.root_dir / self.ORIGINAL_DIR_NAME /"slakh2100_redux_16k" / self.split)
         tracks = list(original_dir.glob("*/"))
         if not tracks:
             raise RuntimeError(f"No tracks found in split {self.split}.")
 
         self.track_index = []
         for track in tqdm(tracks, desc="Building track index"):
-            # Carica tutti gli stems .flac nella cartella stems
-            stems_paths = list(track.glob("stems/S*.flac"))
+
+            stems_paths = list(track.glob("stems/S*.wav"))
             if not stems_paths:
                 continue
 
-            # Assume che tutti gli stems abbiano la stessa durata
+            # Get total number of frames (assuming all stems have the same duration)
             info = torchaudio.info(str(stems_paths[0]))
             num_frames = info.num_frames
             sample_rate = info.sample_rate
@@ -106,33 +104,61 @@ class Slakh2100ContrastivePreprocessed(Dataset):
             })
 
         if not self.track_index:
-            raise RuntimeError("No valid tracks found in the given split.")
+            raise RuntimeError(f"No valid tracks found in split {self.split}.")
 
     def __len__(self) -> int:
-        return self.samples_per_epoch
+        # For training, use samples_per_epoch_train
+        # For validation, use samples_per_epoch_val
+        # (or do something else for test)
+        if self.split == "train":
+            return self.samples_per_epoch_train
+        elif self.split == "validation":
+            return self.samples_per_epoch_val
+        else:
+            # You could define a custom length for test or just return all tracks
+            return len(self.track_index)
 
-    def __getitem__(self, idx) -> Dict[str, torch.Tensor]:
-        max_retries = 5
-        for _ in range(max_retries):
-            track_info = random.choice(self.track_index)
-            try:
-                return self._get_item_from_track(track_info)
-            except Exception as e:
-                print(f"Error loading track: {e}")
-                # Retry with another track
-        raise RuntimeError("Could not find a valid sample after multiple retries.")
+    def __getitem__(self, idx):
+        """
+        For training:
+          - pick a random track from self.track_index
+          - pick a random chunk within that track
+        For validation (deterministic):
+          - use idx to pick which track
+          - use a seeded random or a simple formula for chunk offset
+        """
+        if self.split == "train":
+            # Random track each time
+            track_info = self.rng.choice(self.track_index)
+            # Then get item from track with a random offset
+            return self._get_item_from_track(track_info, random_offset=True)
+        elif self.split == "valid":
+            # Option 1: cycle through tracks in a deterministic way
+            # track_info = self.track_index[idx % len(self.track_index)]
+            # Option 2: choose a random track but in a deterministic manner
+            #           by seeding rng with idx + self.seed_val
+            # We'll do Option 1 for a simpler approach
+            track_info = self.track_index[idx % len(self.track_index)]
+            return self._get_item_from_track(track_info, random_offset=True, deterministic=True, idx=idx)
 
-    def _get_item_from_track(self, track_info):
+    def _get_item_from_track(self, track_info, random_offset=False, deterministic=False, idx=None):
+
         stems_paths = track_info['stems_paths']
-        #print(stems_paths)
+
         sample_rate = track_info['sample_rate']
-        chunk_num_frames = int(self.chunk_duration * sample_rate)
         num_frames = track_info['num_frames']
+        chunk_num_frames = int(self.chunk_duration * sample_rate)
 
-        # Offset casuale del chunk
-        max_start_frame = max(0, num_frames - chunk_num_frames)
-        frame_offset = random.randint(0, max_start_frame) if max_start_frame > 0 else 0
 
+        if random_offset:
+            max_start_frame = max(num_frames - chunk_num_frames, 0)
+            if deterministic and idx is not None:
+                # Example: a repeatable “random” offset from idx
+                # (so it's the same each epoch)
+                offset_rng = random.Random(self.seed_val + idx)
+                frame_offset = offset_rng.randint(0, max_start_frame)
+            else:
+                frame_offset = self.rng.randint(0, max_start_frame)
         stems = []
         for stem_path in stems_paths:
             try:
@@ -150,28 +176,24 @@ class Slakh2100ContrastivePreprocessed(Dataset):
                 chunk_num_frames = int(self.chunk_duration * self.target_sample_rate)
             
             # Mix down to mono
-            waveform = mix_down(waveform)
+            #waveform = mix_down(waveform) #TODO uncomment if you want to train w/o HPSS
             stems.append(waveform)
 
-            stems.append(waveform)
+            #stems.append(waveform)
 
         stems_idxs = list(range(len(stems)))
 
-        # Scelta casuale degli stems per anchor e positive
         if self.generate_submixtures and len(stems_idxs) > 1:
             anchor_mix_size = random.randint(1, len(stems_idxs) - 1)
             anchor_mix_idxs = random.sample(stems_idxs, anchor_mix_size)
+
             positive_mix_size = random.randint(1, len(stems_idxs) - len(anchor_mix_idxs))
-            positive_mix_idxs = random.sample([idx for idx in stems_idxs if idx not in anchor_mix_idxs],
-                                              positive_mix_size)
+            positive_mix_idxs = random.sample(
+                [idx for idx in stems_idxs if idx not in anchor_mix_idxs], positive_mix_size)
         else:
-            # Caso semplice: se non si generano submixtures, si prende 1 stem per anchor e 1 per positive (se disponibile)
             anchor_mix_idxs = random.sample(stems_idxs, 1)
-            remaining = [idx for idx in stems_idxs if idx not in anchor_mix_idxs]
-            if remaining:
-                positive_mix_idxs = random.sample(remaining, 1)
-            else:
-                positive_mix_idxs = anchor_mix_idxs  # Se c'è un solo stem, usa quello sia per anchor che positive
+            positive_mix_idxs = random.sample(
+                [idx for idx in stems_idxs if idx not in anchor_mix_idxs], 1)
 
         anchor = mix_stems(
             [right_pad(stems[j], chunk_num_frames) for j in anchor_mix_idxs])
@@ -187,4 +209,5 @@ class Slakh2100ContrastivePreprocessed(Dataset):
         if self.runtime_transform:
             item = self.runtime_transform(item)
 
+        
         return item

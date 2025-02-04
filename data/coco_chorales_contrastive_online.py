@@ -72,7 +72,7 @@ class CocoChoralesContrastivePreprocessed(Dataset):
             device="cpu",
             preprocess_transform=None,
             runtime_transform=None,
-            samples_per_epoch=10000) -> None:
+            samples_per_epoch=100000) -> None:
 
         self.root_dir = Path(root_dir).expanduser()
         self.download = download
@@ -126,7 +126,7 @@ class CocoChoralesContrastivePreprocessed(Dataset):
 
         self.track_index = []
         for track in tqdm(tracks, desc="Building track index"):
-            stems_paths = list(track.glob("stems_audio/*.wav"))
+            stems_paths = list(track.glob("stems_audio/*.flac")) #TODO before it was .wav
             if not stems_paths:
                 continue
 
@@ -188,10 +188,10 @@ class CocoChoralesContrastivePreprocessed(Dataset):
                 chunk_num_frames = int(self.chunk_duration * self.target_sample_rate)
             
             # Mix down to mono
-            waveform = mix_down(waveform)
+            #waveform = mix_down(waveform) #TODO before it was uncommented
             stems.append(waveform)
 
-            stems.append(waveform)
+            #stems.append(waveform)
 
         stems_idxs = list(range(len(stems)))
 

@@ -7,7 +7,7 @@ from tqdm import tqdm
 from typing import Dict, Literal
 from pathlib import Path
 import logging
-
+import time
 
 from data.utils import right_pad, mix_down, mix_stems
 
@@ -21,17 +21,19 @@ class MoisesdbContrastivePreprocessed(Dataset):
     ORIGINAL_DIR_NAME = "moisesdb_v0.1"
 
     def __init__(
-            self,
-            root_dir="~/moisesdb_contrastive",
-            split="train",
-            chunk_duration=5,
-            target_sample_rate=16000,
-            generate_submixtures=True,
-            device="cpu",
-            preprocess_transform=None,
-            runtime_transform=None,
-            samples_per_epoch=10000) -> None:
-
+        self,
+        root_dir="~/moisesdb_contrastive",
+        split="train",
+        chunk_duration=5,
+        target_sample_rate=16000,
+        generate_submixtures=True,
+        device="cpu",
+        preprocess_transform=None,
+        runtime_transform=None,
+        samples_per_epoch_train=10000,
+        samples_per_epoch_val=320,
+        seed_val=42
+    ) -> None:
         self.root_dir = Path(root_dir).expanduser()
         self.split = split
         self.chunk_duration = chunk_duration
@@ -40,11 +42,13 @@ class MoisesdbContrastivePreprocessed(Dataset):
         self.preprocess_transform = preprocess_transform
         self.runtime_transform = runtime_transform
         self.device = device
-        self.samples_per_epoch = samples_per_epoch  # Total number of samples per epoch
+
+        self.samples_per_epoch_train = samples_per_epoch_train
+        self.samples_per_epoch_val = samples_per_epoch_val
+        self.seed_val = seed_val
 
         if self.split not in ["train", "valid", "test"]:
-            raise ValueError(
-                "`split` must be one of ['train', 'valid', 'test'].")
+            raise ValueError("`split` must be one of ['train', 'valid', 'test'].")
 
         if not self._is_downloaded_and_extracted():
             raise RuntimeError(
@@ -56,6 +60,12 @@ class MoisesdbContrastivePreprocessed(Dataset):
             self.SAMPLE_RATE, self.target_sample_rate)
 
         self._build_index()
+        
+        # Create a separate RNG for validation if needed
+        if self.split == "valid":
+            self.rng = random.Random(self.seed_val)
+        else:
+            self.rng = random
 
     def _is_downloaded_and_extracted(self) -> bool:
         split_dir = self.root_dir / self.ORIGINAL_DIR_NAME / self.split
@@ -69,7 +79,8 @@ class MoisesdbContrastivePreprocessed(Dataset):
 
         self.track_index = []
         for track in tqdm(tracks, desc="Building track index"):
-            stems_paths = list(track.glob("*/*.wav"))
+
+            stems_paths = list(track.glob("*/*.wav")) 
             if not stems_paths:
                 continue
 
@@ -82,40 +93,65 @@ class MoisesdbContrastivePreprocessed(Dataset):
                 'track_name': track.name,
                 'stems_paths': stems_paths,
                 'num_frames': num_frames,
-                'sample_rate': sample_rate,
+                'sample_rate': sample_rate
             })
 
         if not self.track_index:
             raise RuntimeError(f"No valid tracks found in split {self.split}.")
 
     def __len__(self) -> int:
-        return self.samples_per_epoch  # Define the number of samples per epoch
+        # For training, use samples_per_epoch_train
+        # For validation, use samples_per_epoch_val
+        # (or do something else for test)
+        if self.split == "train":
+            return self.samples_per_epoch_train
+        elif self.split == "valid":
+            return self.samples_per_epoch_val
+        else:
+            # You could define a custom length for test or just return all tracks
+            return len(self.track_index)
 
-    def __getitem__(self, idx) -> Dict[str, torch.Tensor]:
-        max_retries = 5
-        for _ in range(max_retries):
-            track_info = random.choice(self.track_index)
-            try:
-                return self._get_item_from_track(track_info)
-            except Exception as e:
-                print(f"Error loading track: {e}")
-                # Retry with another track
-        raise RuntimeError("Could not find a valid sample after multiple retries.")
+    def __getitem__(self, idx):
+        """
+        For training:
+          - pick a random track from self.track_index
+          - pick a random chunk within that track
+        For validation (deterministic):
+          - use idx to pick which track
+          - use a seeded random or a simple formula for chunk offset
+        """
+        if self.split == "train":
+            # Random track each time
+            track_info = self.rng.choice(self.track_index)
+            # Then get item from track with a random offset
+            return self._get_item_from_track(track_info, random_offset=True)
+        elif self.split == "valid":
+            # Option 1: cycle through tracks in a deterministic way
+            # track_info = self.track_index[idx % len(self.track_index)]
+            # Option 2: choose a random track but in a deterministic manner
+            #           by seeding rng with idx + self.seed_val
+            # We'll do Option 1 for a simpler approach
+            track_info = self.track_index[idx % len(self.track_index)]
+            return self._get_item_from_track(track_info, random_offset=True, deterministic=True, idx=idx)
 
-    def _get_item_from_track(self, track_info):
+    def _get_item_from_track(self, track_info, random_offset=False, deterministic=False, idx=None):
+
         stems_paths = track_info['stems_paths']
-        #print(stems_paths)
+
         sample_rate = track_info['sample_rate']
         num_frames = track_info['num_frames']
         chunk_num_frames = int(self.chunk_duration * sample_rate)
 
-        # Randomly select a starting frame
-        max_start_frame = num_frames - chunk_num_frames
-        if max_start_frame <= 0:
-            frame_offset = 0
-        else:
-            frame_offset = random.randint(0, max_start_frame)
 
+        if random_offset:
+            max_start_frame = max(num_frames - chunk_num_frames, 0)
+            if deterministic and idx is not None:
+                # Example: a repeatable “random” offset from idx
+                # (so it's the same each epoch)
+                offset_rng = random.Random(self.seed_val + idx)
+                frame_offset = offset_rng.randint(0, max_start_frame)
+            else:
+                frame_offset = self.rng.randint(0, max_start_frame)
         stems = []
         for stem_path in stems_paths:
             try:
@@ -133,10 +169,10 @@ class MoisesdbContrastivePreprocessed(Dataset):
                 chunk_num_frames = int(self.chunk_duration * self.target_sample_rate)
             
             # Mix down to mono
-            waveform = mix_down(waveform)
+            #waveform = mix_down(waveform) #TODO uncomment if you want to train w/o HPSS
             stems.append(waveform)
 
-            stems.append(waveform)
+            #stems.append(waveform)
 
         stems_idxs = list(range(len(stems)))
 
@@ -166,4 +202,5 @@ class MoisesdbContrastivePreprocessed(Dataset):
         if self.runtime_transform:
             item = self.runtime_transform(item)
 
+        
         return item

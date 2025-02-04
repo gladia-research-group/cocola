@@ -39,62 +39,62 @@ class HPSS(nn.Module):
         Returns:
             torch.Tensor: The HPSS features tensor(s) of shape (B, 2, H, W) or (2, H, W).
         """
-        if len(x.shape) == 2:
-            x = x.unsqueeze(0)
+        #if len(x.shape) == 2: #TODO before was uncommented
+        #    x = x.unsqueeze(0) #TODO before was uncommented
 
-        batch_size = x.shape[0]
+        #batch_size = x.shape[0] #TODO before was uncommented
         features = []
-        for i in range(batch_size):
-            audio = x[i].squeeze(0).cpu().numpy()
+        #for i in range(batch_size): #TODO before was uncommented
+        audio = x.squeeze(0).cpu().numpy() #TODO x[i].squeeze(0).cpu().numpy()
 
-            stft = librosa.stft(audio,
-                                n_fft=self.n_fft,
-                                win_length=self.win_length,
-                                hop_length=self.hop_length)
+        stft = librosa.stft(audio,
+                            n_fft=self.n_fft,
+                            win_length=self.win_length,
+                            hop_length=self.hop_length)
 
-            #stft = torch.stft(
-            #    audio,
-            #    n_fft=self.n_fft,
-            #    hop_length=self.hop_length,
-            #    window=torch.hann_window(self.win_length).to(x.device),
-            #    return_complex=True
-            #)
+        #stft = torch.stft(
+        #    audio,
+        #    n_fft=self.n_fft,
+        #    hop_length=self.hop_length,
+        #    window=torch.hann_window(self.win_length).to(x.device),
+        #    return_complex=True
+        #)
 
-            #stft = stft.cpu().numpy()
+        #stft = stft.cpu().numpy()
 
-            harmonic_stft, percussive_stft = librosa.decompose.hpss(stft)
-
-
-            mel_harmonic = librosa.feature.melspectrogram(S=np.abs(harmonic_stft)**2,
-                                                            sr=self.sample_rate,
-                                                            fmin=self.f_min,
-                                                            fmax=self.f_max,
-                                                            n_mels=self.n_mels)
+        #harmonic_stft, percussive_stft = librosa.decompose.hpss(stft) #TODO before was uncommented
 
 
-            mel_percussive = librosa.feature.melspectrogram(S=np.abs(percussive_stft)**2,
-                                                            sr=self.sample_rate,
-                                                            fmin=self.f_min,
-                                                            fmax=self.f_max,
-                                                            n_mels=self.n_mels)
-
-            mel_db_harmonic = librosa.power_to_db(mel_harmonic, ref=np.max)
-
-            mel_db_percussive = librosa.power_to_db(mel_percussive, ref=np.max)
+        mel_harmonic = librosa.feature.melspectrogram(S=np.abs(stft[0])**2, #TODO before was harmonic_stft
+                                                        sr=self.sample_rate,
+                                                        fmin=self.f_min,
+                                                        fmax=self.f_max,
+                                                        n_mels=self.n_mels)
 
 
-            hp_mel_db = np.stack(
-                (mel_db_harmonic, mel_db_percussive), axis=0)
+        mel_percussive = librosa.feature.melspectrogram(S=np.abs(stft[1])**2, #TODO before was percussive_stft
+                                                        sr=self.sample_rate,
+                                                        fmin=self.f_min,
+                                                        fmax=self.f_max,
+                                                        n_mels=self.n_mels)
+
+        mel_db_harmonic = librosa.power_to_db(mel_harmonic, ref=np.max)
+
+        mel_db_percussive = librosa.power_to_db(mel_percussive, ref=np.max)
+
+
+        hp_mel_db = np.stack(
+            (mel_db_harmonic, mel_db_percussive), axis=0)
 
 
 
-            hp_mel_db = torch.from_numpy(hp_mel_db)
-            features.append(hp_mel_db)
+        hp_mel_db = torch.from_numpy(hp_mel_db)
+        features.append(hp_mel_db)
 
 
         features = torch.stack(features, dim=0)
-        if batch_size == 1:
-            features = features.squeeze(0)
+        #if batch_size == 1: #TODO before was uncommented
+        features = features.squeeze(0)
 
         return features
 
@@ -103,45 +103,47 @@ class CoColaFeatureExtractor(nn.Module):
     def __init__(self,
                  feature_extractor_type: constants.ModelFeatureExtractorType = constants.ModelFeatureExtractorType.HPSS,
                  sample_rate: int = 16000,
-                 n_fft: int = 1024,
-                 win_length: int = 400,
-                 hop_length: int = 160,
-                 f_min: float = 60.0,
-                 f_max: float = 7800.0,
-                 n_mels: int = 64) -> None:
+                 n_fft: int = 1024, #Default: 400
+                 #win_length: int = 400,
+                 #hop_length: int = 160,
+                 #f_min: float = 60.0,
+                 #f_max: float = 7800.0,
+                 #n_mels: int = 64
+                 ) -> None:
         super().__init__()
         self.feature_extractor_type = feature_extractor_type
         self.sample_rate = sample_rate
         self.n_fft = n_fft
-        self.win_length = win_length
-        self.hop_length = hop_length
-        self.f_min = f_min
-        self.f_max = f_max
-        self.n_mels = n_mels
+        #self.win_length = win_length
+        #self.hop_length = hop_length
+        #self.f_min = f_min
+        #self.f_max = f_max
+        #self.n_mels = n_mels
 
-        if self.feature_extractor_type == constants.ModelFeatureExtractorType.HPSS:
-            self.feature_extractor = HPSS(
+        #if self.feature_extractor_type == constants.ModelFeatureExtractorType.HPSS:
+        #    self.feature_extractor = HPSS(
+        #        sample_rate=self.sample_rate,
+        #        n_fft=self.n_fft,
+                #win_length=self.win_length,
+                #hop_length=self.hop_length,
+                #f_min=self.f_min,
+                #f_max=self.f_max,
+                #n_mels=self.n_mels
+        #    )
+        #elif self.feature_extractor_type == constants.ModelFeatureExtractorType.MEL_SPECTROGRAM:
+        
+        self.feature_extractor = torch.nn.Sequential(
+            T.MelSpectrogram(
                 sample_rate=self.sample_rate,
                 n_fft=self.n_fft,
-                win_length=self.win_length,
-                hop_length=self.hop_length,
-                f_min=self.f_min,
-                f_max=self.f_max,
-                n_mels=self.n_mels
-            )
-        elif self.feature_extractor_type == constants.ModelFeatureExtractorType.MEL_SPECTROGRAM:
-            self.feature_extractor = torch.nn.Sequential(
-                T.MelSpectrogram(
-                    sample_rate=self.sample_rate,
-                    n_fft=self.n_fft,
-                    win_length=self.win_length,
-                    hop_length=self.hop_length,
-                    f_min=self.f_min,
-                    f_max=self.f_max,
-                    n_mels=self.n_mels,
-                ),
-                T.AmplitudeToDB()
-            )
+                #win_length=self.win_length,
+                #hop_length=self.hop_length,
+                #f_min=self.f_min,
+                #f_max=self.f_max,
+                #n_mels=self.n_mels,
+            ),
+            T.AmplitudeToDB()
+        )
 
     def forward(self, x: Union[dict, torch.Tensor]):
         """Performs feature extraction.

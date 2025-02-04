@@ -12,11 +12,12 @@ import torch
 from contrastive_model import constants
 from feature_extraction.feature_extraction import CoColaFeatureExtractor
 #from data.coco_chorales_contrastive_preprocessed import CocoChoralesContrastivePreprocessed
-from data.coco_chorales_contrastive_online import CocoChoralesContrastivePreprocessed
-from data.moisesdb_contrastive_online import MoisesdbContrastivePreprocessed
-from data.slakh2100_contrastive_online import Slakh2100ContrastivePreprocessed
 #from data.moisesdb_contrastive_preprocessed import MoisesdbContrastivePreprocessed
 #from data.slakh2100_contrastive_preprocessed import Slakh2100ContrastivePreprocessed
+from data.coco_chorales_contrastive_online import CocoChoralesContrastivePreprocessed #TODO uncomment for hpss online
+from data.moisesdb_contrastive_online import MoisesdbContrastivePreprocessed
+from data.slakh2100_contrastive_online import Slakh2100ContrastivePreprocessed
+
 
 
 
