@@ -103,7 +103,7 @@ class CoColaFeatureExtractor(nn.Module):
     def __init__(self,
                  feature_extractor_type: constants.ModelFeatureExtractorType = constants.ModelFeatureExtractorType.HPSS,
                  sample_rate: int = 16000,
-                 n_fft: int = 1024, #Default: 400
+                 n_fft: int = 1024, #Default: 400 or 1024
                  #win_length: int = 400,
                  #hop_length: int = 160,
                  #f_min: float = 60.0,

@@ -42,7 +42,6 @@ class MoisesdbContrastivePreprocessed(Dataset):
         self.preprocess_transform = preprocess_transform
         self.runtime_transform = runtime_transform
         self.device = device
-
         self.samples_per_epoch_train = samples_per_epoch_train
         self.samples_per_epoch_val = samples_per_epoch_val
         self.seed_val = seed_val
@@ -60,7 +59,7 @@ class MoisesdbContrastivePreprocessed(Dataset):
             self.SAMPLE_RATE, self.target_sample_rate)
 
         self._build_index()
-        
+
         # Create a separate RNG for validation if needed
         if self.split == "valid":
             self.rng = random.Random(self.seed_val)
@@ -201,6 +200,4 @@ class MoisesdbContrastivePreprocessed(Dataset):
 
         if self.runtime_transform:
             item = self.runtime_transform(item)
-
-        
         return item

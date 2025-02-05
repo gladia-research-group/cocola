@@ -132,7 +132,7 @@ class Slakh2100ContrastivePreprocessed(Dataset):
             track_info = self.rng.choice(self.track_index)
             # Then get item from track with a random offset
             return self._get_item_from_track(track_info, random_offset=True)
-        elif self.split == "valid":
+        elif self.split == "validation":
             # Option 1: cycle through tracks in a deterministic way
             # track_info = self.track_index[idx % len(self.track_index)]
             # Option 2: choose a random track but in a deterministic manner

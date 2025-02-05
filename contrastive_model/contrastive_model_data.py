@@ -28,6 +28,9 @@ class CoColaDataModule(L.LightningDataModule):
                  batch_size: int = 32,
                  chunk_duration: int = 5,
                  target_sample_rate: int = 16000,
+                 samples_per_epoch_train = 10000,
+                 samples_per_epoch_val = 320,
+                 seed_val = 42,
                  generate_submixtures: bool = True,
                  feature_extractor_type: constants.ModelFeatureExtractorType = constants.ModelFeatureExtractorType.HPSS,
                  feature_extraction_time: constants.FeatureExtractionTime = constants.FeatureExtractionTime.OFFLINE):
@@ -39,6 +42,9 @@ class CoColaDataModule(L.LightningDataModule):
         self.batch_size = batch_size
         self.chunk_duration = chunk_duration
         self.target_sample_rate = target_sample_rate
+        self.samples_per_epoch_train = samples_per_epoch_train
+        self.samples_per_epoch_val = samples_per_epoch_val
+        self.seed_val = seed_val
         self.generate_submixtures = generate_submixtures
         self.feature_extractor_type = feature_extractor_type
         self.feature_extraction_time = feature_extraction_time
@@ -102,12 +108,15 @@ class CoColaDataModule(L.LightningDataModule):
         if stage == "fit":
             train_dataset = CocoChoralesContrastivePreprocessed(
                 root_dir=root_dir,
-                download=True,
+                #download=True,
                 #preprocess=True,
                 split="train",
                 ensemble=ensemble,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
@@ -115,12 +124,15 @@ class CoColaDataModule(L.LightningDataModule):
 
             val_dataset = CocoChoralesContrastivePreprocessed(
                 root_dir=root_dir,
-                download=True,
+                #download=True,
                 #preprocess=True,
                 split="valid",
                 ensemble=ensemble,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
@@ -128,12 +140,15 @@ class CoColaDataModule(L.LightningDataModule):
         elif stage == "test":
             test_dataset = CocoChoralesContrastivePreprocessed(
                 root_dir=root_dir,
-                download=True,
+                #download=True,
                 #preprocess=True,
                 split="test",
                 ensemble=ensemble,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
@@ -149,22 +164,28 @@ class CoColaDataModule(L.LightningDataModule):
         if stage == "fit":
             train_dataset = Slakh2100ContrastivePreprocessed(
                 root_dir=root_dir,
-                download=True,
+                #download=True,
                 #preprocess=True,
                 split="train",
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,                
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
                 runtime_transform=self.runtime_transform)
             val_dataset = Slakh2100ContrastivePreprocessed(
                 root_dir=root_dir,
-                download=True,
+                #download=True,
                 #preprocess=True,
                 split="validation",
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
@@ -172,11 +193,14 @@ class CoColaDataModule(L.LightningDataModule):
         elif stage == "test":
             test_dataset = Slakh2100ContrastivePreprocessed(
                 root_dir=root_dir,
-                download=True,
+                #download=True,
                 #preprocess=True,
                 split="test",
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
@@ -196,6 +220,9 @@ class CoColaDataModule(L.LightningDataModule):
                 #preprocess=True,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
@@ -207,6 +234,9 @@ class CoColaDataModule(L.LightningDataModule):
                 #preprocess=True,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
@@ -218,6 +248,9 @@ class CoColaDataModule(L.LightningDataModule):
                 #preprocess=True,
                 chunk_duration=self.chunk_duration,
                 target_sample_rate=self.target_sample_rate,
+                samples_per_epoch_train=self.samples_per_epoch_train,
+                samples_per_epoch_val=self.samples_per_epoch_val,
+                seed_val=self.seed_val,
                 generate_submixtures=self.generate_submixtures,
                 device=device,
                 preprocess_transform=self.preprocess_transform,
@@ -231,7 +264,7 @@ class CoColaDataModule(L.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             drop_last=True,
-            num_workers=os.cpu_count(),
+            num_workers=16, #os.cpu_count(),
             persistent_workers=True)
 
     def val_dataloader(self):
@@ -240,7 +273,7 @@ class CoColaDataModule(L.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             drop_last=True,
-            num_workers=os.cpu_count(),
+            num_workers=16, #os.cpu_count(),
             persistent_workers=True)
 
     def test_dataloader(self):
@@ -249,5 +282,5 @@ class CoColaDataModule(L.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             drop_last=True,
-            num_workers=os.cpu_count(),
+            num_workers=16, #os.cpu_count(),
             persistent_workers=True)

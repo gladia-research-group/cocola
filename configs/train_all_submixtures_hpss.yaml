@@ -17,6 +17,7 @@ trainer:
         save_top_k: 5
         mode: min
         filename: checkpoint-{epoch}-{val_loss:.4f}
+        save_on_train_epoch_end: True
   fast_dev_run: false
   max_epochs: 10000
   min_epochs: null
@@ -57,10 +58,13 @@ model:
   dropout_p: 0.1
 data:
   root_dir: /disk1/demancum/hp_datasets
-  dataset: MOISESDB
+  dataset: MIXED
   batch_size: 32
   chunk_duration: 5
   target_sample_rate: 16000
+  samples_per_epoch_train: 100000
+  samples_per_epoch_val: 320
+  seed_val: 42
   generate_submixtures: true
   feature_extractor_type: HPSS
   feature_extraction_time: ONLINE
