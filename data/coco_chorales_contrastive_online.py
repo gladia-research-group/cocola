@@ -175,7 +175,7 @@ class CocoChoralesContrastivePreprocessed(Dataset):
 
         max_start_frame = max(num_frames - chunk_num_frames, 0)
         if self.split == "valid" and idx is not None:
-            # Usa un generatore "seedato" per ottenere lo stesso offset ogni volta
+            # Genera sempre lo stesso offset per lo stesso idx
             rng_offset = random.Random(self.seed_val + idx)
             frame_offset = rng_offset.randint(0, max_start_frame)
         else:
@@ -198,25 +198,31 @@ class CocoChoralesContrastivePreprocessed(Dataset):
 
             stems.append(waveform)
 
-        # Prosegui con la logica per generare mix anchor e positive...
+        # Durante la validazione si usa un generatore locale per ottenere risultati deterministici
+        if self.split == "valid" and idx is not None:
+            rng_mixtures = random.Random(self.seed_val + idx + 1)
+        else:
+            rng_mixtures = self.rng
+
         if self.generate_submixtures and len(stems) > 1:
             stems_idxs = list(range(len(stems)))
-            anchor_mix_size = random.randint(1, len(stems_idxs) - 1)
-            anchor_mix_idxs = random.sample(stems_idxs, anchor_mix_size)
+            anchor_mix_size = rng_mixtures.randint(1, len(stems_idxs) - 1)
+            anchor_mix_idxs = rng_mixtures.sample(stems_idxs, anchor_mix_size)
             if self.split == "train":
-                positive_mix_size = random.randint(1, len(stems_idxs) - 1)
-                positive_mix_idxs = random.sample(stems_idxs, positive_mix_size)
+                positive_mix_size = rng_mixtures.randint(1, len(stems_idxs) - 1)
+                positive_mix_idxs = rng_mixtures.sample(stems_idxs, positive_mix_size)
             else:
-                positive_mix_size = random.randint(1, len(stems_idxs) - len(anchor_mix_idxs))
-                positive_mix_idxs = random.sample(
+                positive_mix_size = rng_mixtures.randint(1, len(stems_idxs) - len(anchor_mix_idxs))
+                positive_mix_idxs = rng_mixtures.sample(
                     [i for i in stems_idxs if i not in anchor_mix_idxs],
                     positive_mix_size
                 )
         else:
             stems_idxs = list(range(len(stems)))
-            anchor_mix_idxs = random.sample(stems_idxs, 1)
-            positive_mix_idxs = random.sample(
-                [i for i in stems_idxs if i not in anchor_mix_idxs], 1
+            anchor_mix_idxs = rng_mixtures.sample(stems_idxs, 1)
+            positive_mix_idxs = rng_mixtures.sample(
+                [i for i in stems_idxs if i not in anchor_mix_idxs],
+                1
             )
 
         anchor = mix_stems([right_pad(stems[j], chunk_num_frames) for j in anchor_mix_idxs])
