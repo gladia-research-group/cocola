@@ -197,20 +197,21 @@ class CocoChoralesContrastivePreprocessed(Dataset):
                 chunk_num_frames = int(self.chunk_duration * self.target_sample_rate)
 
             stems.append(waveform)
-            # Aggiungi il waveform due volte solo in fase di training
-            if self.split == "train":
-                stems.append(waveform)
 
         # Prosegui con la logica per generare mix anchor e positive...
         if self.generate_submixtures and len(stems) > 1:
             stems_idxs = list(range(len(stems)))
             anchor_mix_size = random.randint(1, len(stems_idxs) - 1)
             anchor_mix_idxs = random.sample(stems_idxs, anchor_mix_size)
-            positive_mix_size = random.randint(1, len(stems_idxs) - len(anchor_mix_idxs))
-            positive_mix_idxs = random.sample(
-                [i for i in stems_idxs if i not in anchor_mix_idxs],
-                positive_mix_size
-            )
+            if self.split == "train":
+                positive_mix_size = random.randint(1, len(stems_idxs) - 1)
+                positive_mix_idxs = random.sample(stems_idxs, positive_mix_size)
+            else:
+                positive_mix_size = random.randint(1, len(stems_idxs) - len(anchor_mix_idxs))
+                positive_mix_idxs = random.sample(
+                    [i for i in stems_idxs if i not in anchor_mix_idxs],
+                    positive_mix_size
+                )
         else:
             stems_idxs = list(range(len(stems)))
             anchor_mix_idxs = random.sample(stems_idxs, 1)
