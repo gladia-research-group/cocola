@@ -214,9 +214,12 @@ class CocoChoralesContrastivePreprocessed(Dataset):
             
             # Mix down to mono
             #waveform = mix_down(waveform) #TODO uncomment if you want to train w/o HPSS
-            stems.append(waveform)
+            if self.split == "train":
+                stems.append(waveform)
+                stems.append(waveform)
+            else:
+                stems.append(waveform)
 
-            #stems.append(waveform)
 
         stems_idxs = list(range(len(stems)))
 

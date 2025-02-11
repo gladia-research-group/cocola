@@ -19,7 +19,7 @@ trainer:
         filename: checkpoint-{epoch}-{val_loss:.4f}
         save_on_train_epoch_end: True
   fast_dev_run: false
-  max_epochs: 10000
+  max_epochs: 100000
   min_epochs: null
   max_steps: -1
   min_steps: null
