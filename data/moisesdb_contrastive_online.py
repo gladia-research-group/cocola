@@ -111,46 +111,31 @@ class MoisesdbContrastivePreprocessed(Dataset):
             return len(self.track_index)
 
     def __getitem__(self, idx):
-        """
-        For training:
-          - pick a random track from self.track_index
-          - pick a random chunk within that track
-        For validation (deterministic):
-          - use idx to pick which track
-          - use a seeded random or a simple formula for chunk offset
-        """
         if self.split == "train":
-            # Random track each time
             track_info = self.rng.choice(self.track_index)
-            # Then get item from track with a random offset
-            return self._get_item_from_track(track_info, random_offset=True)
+            return self._get_item_from_track(track_info)
         elif self.split == "valid":
-            # Option 1: cycle through tracks in a deterministic way
-            # track_info = self.track_index[idx % len(self.track_index)]
-            # Option 2: choose a random track but in a deterministic manner
-            #           by seeding rng with idx + self.seed_val
-            # We'll do Option 1 for a simpler approach
             track_info = self.track_index[idx % len(self.track_index)]
-            return self._get_item_from_track(track_info, random_offset=True, deterministic=True, idx=idx)
+            return self._get_item_from_track(track_info, idx=idx)
+        else:
+            track_info = self.track_index[idx % len(self.track_index)]
+            return self._get_item_from_track(track_info, idx=idx)
 
-    def _get_item_from_track(self, track_info, random_offset=False, deterministic=False, idx=None):
 
+    def _get_item_from_track(self, track_info, idx=None):
         stems_paths = track_info['stems_paths']
-
         sample_rate = track_info['sample_rate']
         num_frames = track_info['num_frames']
         chunk_num_frames = int(self.chunk_duration * sample_rate)
 
+        max_start_frame = max(num_frames - chunk_num_frames, 0)
+        if self.split == "valid" and idx is not None:
+            # Usa un generatore "seedato" per ottenere lo stesso offset ogni volta
+            rng_offset = random.Random(self.seed_val + idx)
+            frame_offset = rng_offset.randint(0, max_start_frame)
+        else:
+            frame_offset = self.rng.randint(0, max_start_frame)
 
-        if random_offset:
-            max_start_frame = max(num_frames - chunk_num_frames, 0)
-            if deterministic and idx is not None:
-                # Example: a repeatable “random” offset from idx
-                # (so it's the same each epoch)
-                offset_rng = random.Random(self.seed_val + idx)
-                frame_offset = offset_rng.randint(0, max_start_frame)
-            else:
-                frame_offset = self.rng.randint(0, max_start_frame)
         stems = []
         for stem_path in stems_paths:
             try:
@@ -160,39 +145,36 @@ class MoisesdbContrastivePreprocessed(Dataset):
                     num_frames=chunk_num_frames
                 )
             except Exception as e:
-                # If a stem fails to load, raise an error to trigger the retry logic
                 raise RuntimeError(f"Error loading {stem_path}: {e}")
 
             if sr != self.target_sample_rate:
                 waveform = self.resample_transform(waveform)
                 chunk_num_frames = int(self.chunk_duration * self.target_sample_rate)
-            
-            # Mix down to mono
-            #waveform = mix_down(waveform) #TODO uncomment if you want to train w/o HPSS
+
+            stems.append(waveform)
+            # Aggiungi il waveform due volte solo in fase di training
             if self.split == "train":
                 stems.append(waveform)
-                stems.append(waveform)
-            else:
-                stems.append(waveform)
 
-        stems_idxs = list(range(len(stems)))
-
-        if self.generate_submixtures and len(stems_idxs) > 1:
+        # Prosegui con la logica per generare mix anchor e positive...
+        if self.generate_submixtures and len(stems) > 1:
+            stems_idxs = list(range(len(stems)))
             anchor_mix_size = random.randint(1, len(stems_idxs) - 1)
             anchor_mix_idxs = random.sample(stems_idxs, anchor_mix_size)
-
             positive_mix_size = random.randint(1, len(stems_idxs) - len(anchor_mix_idxs))
             positive_mix_idxs = random.sample(
-                [idx for idx in stems_idxs if idx not in anchor_mix_idxs], positive_mix_size)
+                [i for i in stems_idxs if i not in anchor_mix_idxs],
+                positive_mix_size
+            )
         else:
+            stems_idxs = list(range(len(stems)))
             anchor_mix_idxs = random.sample(stems_idxs, 1)
             positive_mix_idxs = random.sample(
-                [idx for idx in stems_idxs if idx not in anchor_mix_idxs], 1)
+                [i for i in stems_idxs if i not in anchor_mix_idxs], 1
+            )
 
-        anchor = mix_stems(
-            [right_pad(stems[j], chunk_num_frames) for j in anchor_mix_idxs])
-        positive = mix_stems(
-            [right_pad(stems[j], chunk_num_frames) for j in positive_mix_idxs])
+        anchor = mix_stems([right_pad(stems[j], chunk_num_frames) for j in anchor_mix_idxs])
+        positive = mix_stems([right_pad(stems[j], chunk_num_frames) for j in positive_mix_idxs])
 
         if self.preprocess_transform:
             anchor = self.preprocess_transform(anchor)
