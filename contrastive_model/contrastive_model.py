@@ -142,6 +142,16 @@ class CoCola(L.LightningModule):
         if len(y.shape) == 3:
             y = y.unsqueeze(0)
 
+        if self.input_type == constants.ModelInputType.DOUBLE_CHANNEL_HARMONIC_PERCUSSIVE:
+            if self.embedding_mode == constants.EmbeddingMode.RANDOM:
+                raise ValueError(f"Embedding mode {constants.EmbeddingMode.RANDOM.value} is not allowed during inference. Please select a valid embedding mode.")
+            elif self.embedding_mode == constants.EmbeddingMode.HARMONIC:
+                x[:, 1, :, :] = 0
+                y[:, 1, :, :] = 0
+            elif self.embedding_mode == constants.EmbeddingMode.PERCUSSIVE:
+                x[:, 0, :, :] = 0
+                y[:, 0, :, :] = 0
+
         data = torch.cat((x, y), dim=0)
         data_embeddings = self.encoder(data)
         x_embeddings, y_embeddings = torch.split(
